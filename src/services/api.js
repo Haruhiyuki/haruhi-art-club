@@ -20,7 +20,7 @@ async function parseResponse(res){
 
 async function request(method, path, { params, body, isForm, headers } = {}){
   const url = buildUrl(path, params)
-  
+   
   // ✅ 自动尝试从 localStorage 读取管理员密码
   const adminPw = localStorage.getItem('admin_pw')
   const authHeaders = adminPw ? { 'x-admin-password': adminPw } : {}
@@ -84,10 +84,11 @@ export const api = {
 
   // ===== 互动 (点赞/评论) =====
   async likeArtwork(artworkId){
-    return await request('POST', `/api/likes/artwork/${encodeURIComponent(artworkId)}`)
+    // 增加空 body {} 以确保 Content-Type 被设置为 application/json
+    return await request('POST', `/api/likes/artwork/${encodeURIComponent(artworkId)}`, { body: {} })
   },
   async likeComment(commentId){
-    return await request('POST', `/api/likes/comment/${encodeURIComponent(commentId)}`)
+    return await request('POST', `/api/likes/comment/${encodeURIComponent(commentId)}`, { body: {} })
   },
   async listComments(artworkId){
     return await request('GET', '/api/comments', { params: { artwork_id: artworkId } })

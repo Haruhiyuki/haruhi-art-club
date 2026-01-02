@@ -9,7 +9,7 @@ const props = defineProps({
   list: { type: Array, default: undefined },
   data: { type: Array, default: undefined },
 
-  // 兼容“老写法：传入回调函数”
+  // 兼容“老写法：传入回调函数” (已禁用内部自动调用，防止与 emit 双重触发)
   onOpen: { type: Function, default: null },
   onLike: { type: Function, default: null },
   onTag: { type: Function, default: null }
@@ -63,17 +63,19 @@ function isAuthorClickable(item){
 
 function openCard(item){
   emit('open', item)
+  // 兼容旧事件
   emit('select', item)
   emit('itemClick', item)
   emit('click', item)
-  if(typeof props.onOpen === 'function') props.onOpen(item)
+  // 修复：移除 props.onOpen(item) 调用，防止双重触发
 }
 
 function like(item, e){
   e?.stopPropagation?.()
+  // 修复核心问题：仅使用 emit，移除 props.onLike 调用
+  // 避免父组件同时通过 @like 和 :onLike 接收到两次事件，导致双重请求
   emit('like', item)
   emit('likeArtwork', item)
-  if(typeof props.onLike === 'function') props.onLike(item)
 }
 
 function goAuthor(item, e){
@@ -87,7 +89,6 @@ function clickTag(tag, item, e){
   e?.stopPropagation?.()
   emit('tag', tag)
   emit('tagClick', tag)
-  if(typeof props.onTag === 'function') props.onTag(tag, item)
 }
 </script>
 
@@ -176,7 +177,6 @@ function clickTag(tag, item, e){
 <style scoped>
 /* =========================
    主题变量（局部兜底）
-   你全局若已有变量，这里也能兼容
 ========================= */
 .gallery{
   --teal: rgba(20,184,166,1);
@@ -189,7 +189,7 @@ function clickTag(tag, item, e){
   --card: rgba(255,255,255,.78);
   --card2: rgba(255,255,255,.86);
 
-  /* 3D 阴影（更像“浮在背景上”） */
+  /* 3D 阴影 */
   --shadowA: 0 18px 55px rgba(0,0,0,.10);
   --shadowB: 0 6px 16px rgba(0,0,0,.08);
   --inset: inset 0 1px 0 rgba(255,255,255,.70);
@@ -271,7 +271,6 @@ function clickTag(tag, item, e){
   filter: saturate(1.02) contrast(1.02);
 }
 
-/* hover 放大预览图（你想要的“鼠标放到预览图上还会放大”） */
 .art-card:hover .art-card__img{
   transform: scale(1.06);
   filter: saturate(1.05) contrast(1.04);
@@ -286,7 +285,6 @@ function clickTag(tag, item, e){
   gap: 10px;
 }
 
-/* 顶部 meta 行：badge + like */
 .art-card__meta{
   display: flex;
   align-items: center;
@@ -295,7 +293,6 @@ function clickTag(tag, item, e){
   min-height: 30px;
 }
 
-/* 标题 */
 .art-card__title{
   font-weight: 950;
   color: var(--ink);
@@ -308,7 +305,6 @@ function clickTag(tag, item, e){
   overflow: hidden;
 }
 
-/* 作者/上传者 */
 .byline{
   font-size: 12px;
   color: var(--muted);
@@ -330,7 +326,6 @@ function clickTag(tag, item, e){
   border-bottom-color: rgba(20,184,166,.55);
 }
 
-/* tags */
 .tags{
   display: flex;
   flex-wrap: wrap;
@@ -339,8 +334,7 @@ function clickTag(tag, item, e){
 }
 
 /* =========================
-   Badge（不遮挡预览图：在图片下方）
-   网络：天蓝色；个人：粉紫色
+   Badge
 ========================= */
 .badge{
   display: inline-flex;
@@ -370,7 +364,7 @@ function clickTag(tag, item, e){
 }
 
 /* =========================
-   Like pill（下方信息区，轻量但有反馈）
+   Like pill
 ========================= */
 .like-pill{
   display: inline-flex;
@@ -407,7 +401,7 @@ function clickTag(tag, item, e){
 }
 
 /* =========================
-   Tag chip（可点击、蓝色提示）
+   Tag chip
 ========================= */
 .tag-chip{
   border: 1px solid rgba(0,0,0,.10);

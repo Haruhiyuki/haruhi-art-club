@@ -138,7 +138,6 @@ export const useGalleryStore = defineStore('gallery', {
         }
 
         // 3. Seed 兜底：如果后端完全没数据 (数据库是空的)，展示本地 mock 数据
-        // 注意：只在第一页且 total 为 0 时触发
         if(this.total === 0 && this.page === 1 && !this.q){
           const local = filterLocal(seedArtworks, { content:this.content, sourceMode:this.sourceMode, q:this.q })
           const pg = paginate(local, this.page, this.pageSize)
@@ -171,11 +170,19 @@ export const useGalleryStore = defineStore('gallery', {
         return
       }
 
+      // 乐观更新：先在界面上 +1
+      const oldVal = item.like_total
+      item.like_total = Number(oldVal || 0) + 1
+
       try {
         const out = await api.likeArtwork(id)
-        item.like_total = Number(out.totalLikes || (Number(item.like_total||0)+1))
+        // 后端确认后，更新为后端返回的准确数值
+        item.like_total = Number(out.totalLikes)
       } catch(e){
-        // 忽略错误（如限额）
+        // 失败回滚
+        item.like_total = oldVal
+        console.error('Like failed:', e)
+        // 可以选择这里弹出一个 Toast 提示用户
       }
     }
   }
