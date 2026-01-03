@@ -79,7 +79,7 @@ function enterAdmin() {
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background-image: url('892.jpg'); /* 请确保图片路径正确 */
+  background-image: url('src/assets/logo.webp');
   background-size: cover;
   background-position: center;
   border: 1px solid rgba(255, 255, 255, 0.6);

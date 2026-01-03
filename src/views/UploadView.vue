@@ -7,7 +7,7 @@
       </div>
 
       <div class="head-image">
-        <img src="/006.png" alt="Decoration" />
+        <img src="/src/assets/kon.webp" alt="Decoration" />
       </div>
     </div>
 
@@ -415,7 +415,7 @@ async function submit(){
   position: absolute;
   inset: 0;
   z-index: -1;
-  background-image: url('766.jpg');
+  background-image: url('src/assets/upload-bg.webp');
   background-position: center;
   background-repeat: no-repeat;
   background-size: 100% auto; 

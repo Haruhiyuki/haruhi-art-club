@@ -47,17 +47,18 @@
     />
 
     <ArtworkModal
-      v-model="modalOpen"
+      :model-value="modalOpen"
       :item="activeItem"
+      @update:model-value="val => !val && closeModal()"
       @tag="onTag"
-      @close="activeItem=null"
+      @close="closeModal"
     />
   </section>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useGalleryStore } from '../stores/galleryStore.js'
 import FilterPanel from '../components/FilterPanel.vue'
 import ArtworkGrid from '../components/ArtworkGrid.vue'
@@ -65,6 +66,7 @@ import ArtworkModal from '../components/ArtworkModal.vue'
 
 const store = useGalleryStore()
 const route = useRoute()
+const router = useRouter()
 
 const modalOpen = ref(false)
 const activeItem = ref(null)
@@ -76,49 +78,135 @@ function reload(){
   store.load()
 }
 
-function openItem(it){
-  activeItem.value = it
-  modalOpen.value = true
-}
-
 function likeItem(it){
   store.likeArtwork(it)
 }
 
-// 进入标签模式
+// ---------------------------------------------------------
+// URL 驱动的核心逻辑
+// ---------------------------------------------------------
+
+// 1. 进入标签模式 -> 更新 URL
 function onTag(t){
-  activeTag.value = t
-  activeAuthor.value = null // 清除作者模式
-  store.setFilters({ q: t, searchField: 'tag' })
-  reload()
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-  modalOpen.value = false
+  router.push({ query: { ...route.query, tag: t, author: undefined, artwork: undefined } })
 }
 
-// 进入作者模式 (新功能)
+// 2. 进入作者模式 -> 更新 URL
 function onAuthor(authorInfo){
   // authorInfo: { uid, name }
-  activeAuthor.value = authorInfo
-  activeTag.value = '' // 清除标签模式
-  
-  // 使用 uid 进行精准搜索
-  store.setFilters({ q: authorInfo.uid, searchField: 'uid' })
-  reload()
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-  modalOpen.value = false
+  // 我们在 URL 里只存 uid，name 通过列表数据反查或临时显示
+  router.push({ query: { ...route.query, author: authorInfo.uid, tag: undefined, artwork: undefined } })
 }
 
-// 退出特殊模式（标签/作者），返回普通画廊
+// 3. 打开详情 -> 更新 URL
+function openItem(it){
+  router.push({ query: { ...route.query, artwork: it.id } })
+}
+
+// 4. 关闭详情 -> 更新 URL
+function closeModal(){
+  // 移除 artwork 参数
+  const q = { ...route.query }
+  delete q.artwork
+  router.push({ query: q })
+}
+
+// 5. 退出特殊模式 -> 清空相关 URL 参数
 function exitMode(){
-  activeTag.value = ''
-  activeAuthor.value = null
-  store.setFilters({ q: '', searchField: 'all' }) // 清空搜索词，重置为综合搜索
-  reload()
+  router.push({ query: {} }) // 回到纯净路径
 }
 
+// 监听路由变化，响应式更新视图状态 (支持浏览器后退/前进/分享链接)
+watch(() => route.query, (q, oldQ) => {
+  const newTag = q.tag
+  const newAuthorUid = q.author
+  const newArtworkId = q.artwork
+  
+  // A. 处理标签模式变化
+  if (newTag && newTag !== activeTag.value) {
+    activeTag.value = newTag
+    activeAuthor.value = null
+    store.setFilters({ q: newTag, searchField: 'tag' })
+    reload()
+  } else if (!newTag && activeTag.value) {
+    activeTag.value = ''
+    if (!newAuthorUid) { // 如果也不是作者模式，则重置回普通画廊
+      store.setFilters({ q: '', searchField: 'all' })
+      reload()
+    }
+  }
+
+  // B. 处理作者模式变化
+  if (newAuthorUid) {
+    // 如果当前已经是该作者模式，不重复刷新
+    if (!activeAuthor.value || activeAuthor.value.uid !== newAuthorUid) {
+      activeAuthor.value = { uid: newAuthorUid, name: newAuthorUid } // 名字暂时用UID占位，稍后从列表修正
+      activeTag.value = ''
+      store.setFilters({ q: newAuthorUid, searchField: 'uid' })
+      reload()
+    }
+  } else if (!newAuthorUid && activeAuthor.value) {
+    activeAuthor.value = null
+    if (!newTag) {
+       store.setFilters({ q: '', searchField: 'all' })
+       reload()
+    }
+  }
+
+  // C. 处理详情弹窗变化
+  if (newArtworkId) {
+    // 尝试在当前列表中查找 (支持列表已加载的情况)
+    const target = store.list.find(i => String(i.id) === String(newArtworkId))
+    if (target) {
+      activeItem.value = target
+      modalOpen.value = true
+    }
+    // 如果列表中没找到（例如分享链接进来），需要等列表加载完再匹配，见下方 store.list 监听
+  } else {
+    modalOpen.value = false
+    activeItem.value = null
+  }
+}, { immediate: true })
+
+// 监听列表数据变化，用于修正作者名显示和处理深层链接的详情打开
+watch(() => store.list, (list) => {
+  if (!list || list.length === 0) return
+
+  // 1. 修正作者名 (如果当前是作者模式且名字只是UID)
+  if (activeAuthor.value && activeAuthor.value.name === activeAuthor.value.uid) {
+    // 既然搜的是 UID，列表中第一个作品应该就是该作者的
+    const first = list[0]
+    if (first && first.uploader_name) {
+      activeAuthor.value.name = first.uploader_name
+    }
+  }
+
+  // 2. 尝试打开详情 (针对直接访问 ?artwork=xxx 的情况)
+  const targetId = route.query.artwork
+  if (targetId && !modalOpen.value) {
+    const target = list.find(i => String(i.id) === String(targetId))
+    if (target) {
+      activeItem.value = target
+      modalOpen.value = true
+    }
+  }
+})
+
+// 初始化
 onMounted(() => {
-  if(route.query.q) store.setFilters({ q: route.query.q })
-  store.load()
+  // 1. 如果 URL 带有查询参数 q (普通搜索分享)，同步到 store
+  if (route.query.q) {
+    store.setFilters({ q: route.query.q })
+  }
+
+  // 2. 判断是否需要初始加载
+  // watch 只负责监听 tag 和 author 的变化并触发重载。
+  // 如果当前 URL 没有 tag 也没有 author (例如只有 artwork 参数，或者纯净首页，或者只有 q)，
+  // 则需要手动触发一次初始加载。
+  const { tag, author } = route.query
+  if (!tag && !author) {
+    store.load()
+  }
 })
 </script>
 

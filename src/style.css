@@ -83,7 +83,7 @@ body::before {
   z-index: -2;
 
   /* --- 👇 背景图片链接 👇 --- */
-  background-image: url('343.jpg');
+  background-image: url('src/assets/bg.webp');
   /* ---------------------- */
 
   background-size: cover;
