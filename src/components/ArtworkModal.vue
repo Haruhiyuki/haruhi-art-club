@@ -209,6 +209,8 @@ async function likeComment(c){
 
 function clickTag(t){
   emit('tag', t)
+  // 关键修改：点击标签后自动关闭详情页
+  close()
 }
 
 watch(visible, (v) => {
