@@ -4,7 +4,7 @@ import dotenv from 'dotenv'
 dotenv.config()
 
 const WEB_PORT = Number(process.env.PORT_WEB || 5178)
-const SERVER_PORT = Number(process.env.PORT_SERVER || 15450)
+const SERVER_PORT = Number(process.env.PORT_SERVER || 15454)
 
 function run(cmd, args, extraEnv = {}) {
   return spawn(cmd, args, {

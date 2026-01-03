@@ -12,7 +12,7 @@ import { initDb, getDb } from './db.js'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const API_PORT = Number(process.env.API_PORT || 15450)
+const API_PORT = Number(process.env.API_PORT || 15454)
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data.sqlite')
 
 // Cookie 匿名识别（点赞/限额用）
