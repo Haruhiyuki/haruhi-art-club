@@ -87,9 +87,9 @@
           :value="searchField"
           @change="emit('update:searchField', $event.target.value)"
         >
-          <option value="all">综合搜索</option>
+          <option value="all">综合搜</option>
           <option value="title">搜标题</option>
-          <option value="uid">搜作者(UID)</option>
+          <option value="uid">搜作者</option>
           <!-- 仅当当前是tag模式时显示此选项，用于回显 -->
           <option v-if="searchField === 'tag'" value="tag">搜标签</option>
         </select>
@@ -141,9 +141,9 @@ const emit = defineEmits([
 
 const searchPlaceholder = computed(() => {
   const map = {
-    all: '搜索标题/描述/作者/标签...',
+    all: '搜索所有内容...',
     title: '请输入作品标题...',
-    uid: '请输入作者UID...',
+    uid: '请输入作者名...',
     tag: '搜索标签...'
   }
   return map[props.searchField] || '搜索作品...'
