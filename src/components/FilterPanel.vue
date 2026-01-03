@@ -123,7 +123,9 @@ const emit = defineEmits([
 </script>
 
 <style scoped>
-/* 主要容器布局 */
+/* =========================================
+   通用样式 (电脑端优先)
+   ========================================= */
 .filter-panel-3d {
   padding: 16px 0;
   display: flex;
@@ -151,7 +153,7 @@ const emit = defineEmits([
   overflow: visible; 
 }
 
-/* 装饰图片样式 (默认电脑端) */
+/* 装饰图片 (电脑端位置) */
 .mascot-img {
   position: absolute;
   bottom: 95%; 
@@ -165,11 +167,11 @@ const emit = defineEmits([
   width: auto;
 }
 
+/* 电脑端固定宽度 */
 .content-track {
   grid-template-columns: 1fr 1fr;
   width: 140px; 
 }
-
 .source-track {
   grid-template-columns: 1fr 1fr 1fr;
   width: 200px;
@@ -187,17 +189,12 @@ const emit = defineEmits([
   box-shadow: 0 4px 12px rgba(0,0,0,.15);
 }
 
-.content-track .slider-bg {
-  width: calc(50% - 4px);
-  left: 4px;
-}
+/* 滑块位置计算 */
+.content-track .slider-bg { width: calc(50% - 4px); left: 4px; }
 .content-track .slider-bg.pos-0 { transform: translateX(0%); }
 .content-track .slider-bg.pos-1 { transform: translateX(100%); }
 
-.source-track .slider-bg {
-  width: calc(33.333% - 5px);
-  left: 4px;
-}
+.source-track .slider-bg { width: calc(33.333% - 5px); left: 4px; }
 .source-track .slider-bg.pos-0 { transform: translateX(0%); }
 .source-track .slider-bg.pos-1 { transform: translateX(100%); }
 .source-track .slider-bg.pos-2 { transform: translateX(200%); }
@@ -217,9 +214,7 @@ const emit = defineEmits([
   transition: color 0.2s ease;
   text-align: center;
 }
-
 .toggle-item:hover { color: rgba(0,0,0,.9); }
-
 .toggle-item.active {
   color: #fff;
   text-shadow: 0 1px 2px rgba(0,0,0,0.2);
@@ -242,7 +237,6 @@ const emit = defineEmits([
   border-color: rgba(20,184,166,.55);
   box-shadow: 0 0 0 4px rgba(20,184,166,.14);
 }
-
 .btn-3d{
   border: 1px solid rgba(0,0,0,.12);
   border-radius: 14px;
@@ -263,88 +257,70 @@ const emit = defineEmits([
   background: rgba(255,255,255,.75);
 }
 
-/* --- 手机端适配 (768px 以下) --- */
+/* =========================================
+   手机端自适应优化 (宽度 <= 768px)
+   ========================================= */
 @media (max-width: 768px) {
   .filter-panel-3d { 
     align-items: stretch; 
-    padding: 0 16px;
+    padding: 0 8px; /* 减小内边距，释放屏幕空间 */
     margin-top: 130px; 
   }
   
-  /* 修改重点：
-     1. flex-direction: row -> 让两组筛选栏水平排列
-     2. flex-wrap: nowrap -> 强制不换行
-     3. overflow-x: auto -> 如果屏幕实在太小，允许横向微滚动，防止布局崩坏
-  */
   .panel-group {
     flex-direction: row; 
     align-items: center;
-    gap: 12px; /* 两个筛选组之间的间距 */
-    justify-content: flex-start;
     width: 100%;
+    gap: 6px; /* 紧凑间距 */
     flex-wrap: nowrap; 
-    /* overflow-x: auto;  按需开启，如果屏幕极窄 */
   }
 
-  /* 修改重点：
-     1. flex-direction: row -> 标签在左，轨道在右
-     2. gap -> 标签和轨道之间的距离
-  */
+  /* 比例分配：内容 40% vs 来源 60% */
+  .content-box { flex: 2; min-width: 0; }
+  .source-box { flex: 3; min-width: 0; }
+
   .control-box {
     flex-direction: row;
     align-items: center; 
-    gap: 6px;
-    flex-shrink: 0; /* 防止被挤压 */
+    gap: 4px; 
   }
 
-  /* 标签样式调整 */
   .c-label {
-    font-size: 17px; /* 字体适中，不至于太难看清 */
+    font-size: 12px; /* 字体适度调小 */
     opacity: 0.8;
-    margin-bottom: 0; /* 既然在左边，就不需要底部边距了 */
-    white-space: nowrap; /* 防止换行 */
-  }
-
-  /* 轨道样式调整 */
-  .toggle-track {
-    width: auto; 
     margin: 0;
-    padding: 3px; /* 稍微紧凑 */
-  }
-  
-  /* 给轨道设定一个相对合理的最小宽度，保证点击面积 */
-  .content-track {
-    width: 90px; 
-  }
-  
-  .source-track {
-    width: 140px;
+    white-space: nowrap; 
   }
 
-  /* 按钮字体和点击区域 */
+  /* 轨道填满剩余空间 */
+  .toggle-track {
+    width: 100%; 
+    margin: 0;
+    padding: 2px;
+  }
+  
+  /* 解除固定宽度限制 */
+  .content-track, .source-track { width: 100%; }
+
   .toggle-item {
-    font-size: 20px; 
-    padding: 1px 0;
+    font-size: 13px; 
+    padding: 5px 0;
+    white-space: nowrap; 
   }
 
-  /* 滑块跟随调整 */
-  .slider-bg {
-    top: 3px;
-    bottom: 3px;
-  }
-  .content-track .slider-bg { width: calc(50% - 3px); left: 3px; }
-  .source-track .slider-bg { width: calc(33.333% - 3.5px); left: 3px; }
+  /* 滑块微调 */
+  .slider-bg { top: 2px; bottom: 2px; }
+  .content-track .slider-bg { width: calc(50% - 2px); left: 2px; }
+  .source-track .slider-bg { width: calc(33.333% - 2.66px); left: 2px; }
 
-  /* 修改重点：装饰图片位置
-     由于标签现在在左边，轨道上方是空的，图片可以完美放置
-  */
+  /* 装饰图片 */
   .mascot-img {
     height: 100px; 
     bottom: 90%; 
-    right: -10px; 
+    right: 0px; 
   }
 
-  /* 搜索栏保持一行 */
+  /* 搜索栏 */
   .search-wrapper { 
     width: 100%; 
     flex-wrap: nowrap; 
@@ -356,6 +332,7 @@ const emit = defineEmits([
   .btn-ghost {
     flex-shrink: 0;
     white-space: nowrap;
+    padding: 10px 10px; /* 紧凑按钮 */
   }
   
   .input-3d {

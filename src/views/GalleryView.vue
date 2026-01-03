@@ -13,7 +13,7 @@
     <div class="statusRow">
       <div class="left">
   
-        <span class="muted" v-if="store.usingSeed">（演示数据）</span>
+        <span class="muted" v-if="store.usingSeed"></span>
       </div>
 
     </div>
