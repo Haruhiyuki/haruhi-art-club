@@ -87,6 +87,7 @@
           @input="emit('update:q', $event.target.value)"
           @keydown.enter="emit('search')"
           placeholder="搜索作品..."
+          type="search"
         />
         <button class="btn-3d btn-primary" type="button" data-sfx="click" @click="emit('search')">
           GO

@@ -6,7 +6,7 @@
       :q="store.q"
       @update:content="v => { store.setFilters({ content: v }); reload() }"
       @update:sourceMode="v => { store.setFilters({ sourceMode: v }); reload() }"
-      @update:q="v => { store.setFilters({ q: v }); reload() }"
+      @update:q="v => store.setFilters({ q: v })"
       @search="reload"
     />
 
