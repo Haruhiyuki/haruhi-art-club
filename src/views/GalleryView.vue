@@ -1,8 +1,8 @@
 <template>
   <section class="container-card">
-    <!-- 状态切换：普通模式显示筛选栏，标签模式显示标签抬头 -->
+    <!-- 状态切换：普通模式显示筛选栏，标签/作者模式显示专属抬头 -->
     <FilterPanel
-      v-if="!activeTag"
+      v-if="!activeTag && !activeAuthor"
       :content="store.content"
       :sourceMode="store.sourceMode"
       :q="store.q"
@@ -17,15 +17,20 @@
 
     <div v-else class="tag-header">
       <div class="tag-info">
-        <h2 class="tag-title">标签：{{ activeTag }}</h2>
+        <h2 v-if="activeTag" class="tag-title">标签：{{ activeTag }}</h2>
+        <h2 v-else-if="activeAuthor" class="tag-title author-title">
+          <span>作者：</span>
+          <span class="highlight">{{ activeAuthor.name }}</span>
+        </h2>
       </div>
-      <button class="btn-return" @click="exitTagMode">
+      <button class="btn-return" @click="exitMode">
         <span class="icon">↩</span> 返回画廊
       </button>
     </div>
 
     <div class="statusRow">
       <div class="left">
+        <!-- 这里可以放置加载状态或结果数量等信息 -->
         <span class="muted" v-if="store.usingSeed"></span>
       </div>
     </div>
@@ -38,6 +43,7 @@
       @open="openItem"
       @like="likeItem"
       @tag="onTag"
+      @author="onAuthor"
     />
 
     <ArtworkModal
@@ -63,6 +69,7 @@ const route = useRoute()
 const modalOpen = ref(false)
 const activeItem = ref(null)
 const activeTag = ref('')
+const activeAuthor = ref(null) // { uid, name }
 
 function reload(){
   store.page = 1
@@ -81,18 +88,31 @@ function likeItem(it){
 // 进入标签模式
 function onTag(t){
   activeTag.value = t
-  // 关键修复：点击标签时，强制指定搜索范围为 'tag'，避免模糊匹配到标题
+  activeAuthor.value = null // 清除作者模式
   store.setFilters({ q: t, searchField: 'tag' })
   reload()
   window.scrollTo({ top: 0, behavior: 'smooth' })
   modalOpen.value = false
 }
 
-// 退出标签模式
-function exitTagMode(){
+// 进入作者模式 (新功能)
+function onAuthor(authorInfo){
+  // authorInfo: { uid, name }
+  activeAuthor.value = authorInfo
+  activeTag.value = '' // 清除标签模式
+  
+  // 使用 uid 进行精准搜索
+  store.setFilters({ q: authorInfo.uid, searchField: 'uid' })
+  reload()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+  modalOpen.value = false
+}
+
+// 退出特殊模式（标签/作者），返回普通画廊
+function exitMode(){
   activeTag.value = ''
-  // 退出时重置为综合搜索
-  store.setFilters({ q: '', searchField: 'all' })
+  activeAuthor.value = null
+  store.setFilters({ q: '', searchField: 'all' }) // 清空搜索词，重置为综合搜索
   reload()
 }
 
@@ -113,7 +133,7 @@ onMounted(() => {
 .errorBox{ padding:12px; background:#fee; color:red; border-radius:8px; }
 .muted{ color:#999; font-size:12px; }
 
-/* 标签模式专用样式 */
+/* 标签/作者模式专用样式 */
 .tag-header {
   display: flex;
   justify-content: space-between;
@@ -140,6 +160,15 @@ onMounted(() => {
   font-size: 32px;
   font-weight: 300;
   transform: translateY(-2px);
+}
+
+/* 作者模式特殊样式 */
+.author-title::before {
+  content: '@'; /* 作者用 @ 符号 */
+  color: #e9b5fd; /* 紫色 */
+}
+.author-title .highlight {
+  color: #1a1a1a;
 }
 
 .btn-return {

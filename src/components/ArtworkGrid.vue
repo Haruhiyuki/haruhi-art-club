@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+// import { useRouter } from 'vue-router' // No longer needed for author navigation
 
 const props = defineProps({
   // 兼容多种父组件传参命名
@@ -17,10 +17,11 @@ const props = defineProps({
 
 const emit = defineEmits([
   'open', 'like', 'tag',
-  'select', 'itemClick', 'click', 'likeArtwork', 'tagClick'
+  'select', 'itemClick', 'click', 'likeArtwork', 'tagClick',
+  'author' // 新增事件
 ])
 
-const router = useRouter()
+// const router = useRouter() 
 
 const list = computed(() => {
   return props.items ?? props.artworks ?? props.list ?? props.data ?? []
@@ -78,7 +79,10 @@ function goAuthor(item, e){
   e?.stopPropagation?.()
   const uid = (item?.uploader_uid || '').trim()
   if(!uid) return
-  router.push(`/creator/${encodeURIComponent(uid)}`)
+  // 旧逻辑：router.push
+  // 新逻辑：emit author 事件，让父组件处理筛选
+  const name = (item?.uploader_name || '').trim()
+  emit('author', { uid, name: name || uid })
 }
 
 function clickTag(tag, item, e){
