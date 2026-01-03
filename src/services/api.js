@@ -81,5 +81,10 @@ export const api = {
   adminPointsLedger: () => request('GET', '/api/admin/points-ledger'),
   adminCreators: () => request('GET', '/api/admin/creators'),
   adminAddCreator: (uid) => request('POST', '/api/admin/creators', { body: { uid } }),
-  adminGrantPoints: (body) => request('POST', '/api/admin/points/grant', { body })
+  adminGrantPoints: (body) => request('POST', '/api/admin/points/grant', { body }),
+
+    // Points & Leaderboard
+  pointsLeaderboard: (page=1) => request('GET', '/api/points/leaderboard', { params: { page } }),
+  pointsHistory: (uid) => request('GET', '/api/points/history', { params: { uid } }),
+  searchCreators: (q) => request('GET', '/api/creators/search', { params: { q } })
 }

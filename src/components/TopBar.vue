@@ -31,9 +31,7 @@ function enterAdmin() {
     <nav class="nav">
       <RouterLink :class="linkClass('/')" to="/" data-sfx="click">画廊</RouterLink>
       <RouterLink :class="linkClass('/upload')" to="/upload" data-sfx="click">投稿</RouterLink>
-      <button class="adminBtn leaf-btn" type="button" @click="enterAdmin" data-sfx="click">
-        后台
-      </button>
+      <RouterLink :class="linkClass('/points')" to="/points" data-sfx="click">积分</RouterLink>
     </nav>
   </div>
 </template>

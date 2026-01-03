@@ -153,8 +153,13 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 24 * 1024 * 1024 } // 稍微调大点限制，支持原图上传
+  limits: { fileSize: 24 * 1024 * 1024 }
 })
+
+const uploadFields = upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'original', maxCount: 1 }
+])
 
 // ... express app setup ...
 const app = express()
@@ -197,6 +202,70 @@ app.use('/uploads', express.static(uploadsDir))
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 
+// 1. 积分排行榜
+app.get('/api/points/leaderboard', async (req, res) => {
+  const db = getDb()
+  const page = clampInt(req.query.page, 1, 100, 1)
+  const pageSize = 10
+  const offset = (page - 1) * pageSize
+
+  // 聚合计算每个 UID 的总分
+  const rows = await db.all(`
+    SELECT pl.uid, SUM(pl.points) as total, c.avatar_url
+    FROM points_ledger pl
+    LEFT JOIN creators c ON c.uid = pl.uid
+    GROUP BY pl.uid
+    ORDER BY total DESC
+    LIMIT ? OFFSET ?
+  `, [pageSize, offset])
+
+  res.json({ ok: true, data: rows })
+})
+
+// 2. 积分查询 (详情 & 历史)
+app.get('/api/points/history', async (req, res) => {
+  const db = getDb()
+  const uid = String(req.query.uid || '').trim()
+  if(!uid) return res.json({ ok: false, message: 'Missing uid' })
+
+  // 计算总分
+  const totalRow = await db.get(`SELECT SUM(points) as total FROM points_ledger WHERE uid=?`, [uid])
+  const total = Number(totalRow?.total || 0)
+
+  // 获取最近变动记录
+  const history = await db.all(`
+    SELECT pl.points, pl.note, pl.created_at, a.title as artwork_title
+    FROM points_ledger pl
+    LEFT JOIN artworks a ON a.id = pl.artwork_id
+    WHERE pl.uid=?
+    ORDER BY datetime(pl.created_at) DESC
+    LIMIT 50
+  `, [uid])
+
+  // 获取创作者基本信息
+  const creator = await db.get(`SELECT uid, avatar_url FROM creators WHERE uid=?`, [uid])
+
+  res.json({ ok: true, total, history, creator })
+})
+
+// 3. 创作者模糊搜索 (用于自动补全)
+app.get('/api/creators/search', async (req, res) => {
+  const db = getDb()
+  const q = String(req.query.q || '').trim()
+  if(!q) return res.json({ ok: true, data: [] })
+  
+  // 简单的模糊匹配
+  const like = `%${q}%`
+  const rows = await db.all(`
+    SELECT uid, avatar_url FROM creators 
+    WHERE uid LIKE ? 
+    LIMIT 8
+  `, [like])
+  
+  res.json({ ok: true, data: rows })
+})
+
+// 读取作品列表
 app.get('/api/artworks', async (req, res) => {
   const db = getDb()
   const status = String(req.query.status || 'approved')
@@ -275,16 +344,9 @@ app.get('/api/artworks', async (req, res) => {
   })
 })
 
-// 修改：支持两个文件上传
-const uploadFields = upload.fields([
-  { name: 'image', maxCount: 1 },     // 压缩后的 WebP
-  { name: 'original', maxCount: 1 }   // 原图
-])
-
 app.post('/api/artworks', uploadFields, async (req, res) => {
   const db = getDb()
   
-  // 提取文件：
   const fileCompressed = req.files?.['image']?.[0]
   const fileOriginal = req.files?.['original']?.[0]
 
@@ -292,8 +354,6 @@ app.post('/api/artworks', uploadFields, async (req, res) => {
     return res.status(400).json({ ok: false, message: '缺少图片文件' })
   }
 
-  // 逻辑：如果只有 image (旧客户端)，则都用 image
-  // 如果两个都有，image 是展示图，original 是原图
   const displayFile = fileCompressed || fileOriginal
   const originalFile = fileOriginal || fileCompressed
 
@@ -307,7 +367,6 @@ app.post('/api/artworks', uploadFields, async (req, res) => {
 
   if (!title || !description) return res.status(400).json({ ok: false, message: '作品名称与描述为必填' })
 
-  // 检查用展示图（压缩图）来做内容安全检测通常足够且更快
   const textCheck = await checkText(`${title}\n${description}`)
   const imageCheck = await checkImage(displayFile.path)
 
@@ -342,7 +401,6 @@ app.post('/api/artworks', uploadFields, async (req, res) => {
   const review_note = aiReason.join('; ')
   const reviewed_at = finalStatus === 'approved' ? created_at : null
 
-  // 获取相对路径
   const relDisplay = path.relative(uploadsDir, displayFile.path).replace(/\\/g, '/')
   const relOriginal = path.relative(uploadsDir, originalFile.path).replace(/\\/g, '/')
 
@@ -354,18 +412,36 @@ app.post('/api/artworks', uploadFields, async (req, res) => {
     [title, description, uploader_name || null, uploader_uid || null, source_type, content_type, tags_json, tags_norm, origin_url || null, relDisplay, relOriginal, finalStatus, review_note, reviewed_at, created_at, licenses_json, review_note]
   )
 
+  // --- 修改后的积分逻辑 ---
   let pointsAdded = false
   if (finalStatus === 'approved' && source_type === 'personal' && uploader_uid) {
-    try {
-      await db.run(
-        `INSERT INTO points_ledger(uid, artwork_id, points, note, created_at, granted_at) VALUES(?,?,?,?,?,?)`,
-        [uploader_uid, result.lastID, 15, '投稿自动过审奖励', created_at, created_at]
-      )
-      pointsAdded = true
-    } catch (e) {
-      console.error('Auto grant points failed:', e)
+    let points = 0
+    let note = ''
+
+    // 凉宫个人作品: 120分
+    if (content_type === 'haruhi') {
+      points = 120
+      note = '投稿凉宫个人作品奖励'
+    } 
+    // 其他个人作品: 30分
+    else {
+      points = 30
+      note = '投稿其他个人作品奖励'
+    }
+
+    if (points > 0) {
+      try {
+        await db.run(
+          `INSERT INTO points_ledger(uid, artwork_id, points, note, created_at, granted_at) VALUES(?,?,?,?,?,?)`,
+          [uploader_uid, result.lastID, points, note, created_at, created_at]
+        )
+        pointsAdded = true
+      } catch (e) {
+        console.error('Auto grant points failed:', e)
+      }
     }
   }
+  // -----------------------
 
   res.json({
     ok: true,
