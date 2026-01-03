@@ -42,7 +42,7 @@
           <div 
             class="slider-bg"
             :class="{ 
-              'pos-0': sourceMode === 'balanced', 
+              'pos-0': sourceMode === 'all' || sourceMode === 'balanced', 
               'pos-1': sourceMode === 'network',
               'pos-2': sourceMode === 'personal'
             }"
@@ -50,12 +50,12 @@
 
           <button
             class="toggle-item"
-            :class="{ active: sourceMode === 'balanced' }"
+            :class="{ active: sourceMode === 'all' || sourceMode === 'balanced' }"
             type="button"
             data-sfx="click"
-            @click="emit('update:sourceMode', 'balanced')"
+            @click="emit('update:sourceMode', 'all')"
           >
-            混合
+            全部
           </button>
           <button
             class="toggle-item"
@@ -110,7 +110,7 @@
 <script setup>
 const props = defineProps({
   content: { type: String, default: 'haruhi' },
-  sourceMode: { type: String, default: 'balanced' },
+  sourceMode: { type: String, default: 'all' },
   q: { type: String, default: '' }
 })
 

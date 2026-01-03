@@ -3,7 +3,7 @@
     <div class="head">
       <div class="head-content">
         <div class="h1">投稿上传</div>
-        <div class="sub">提交后进入待审核状态，后台审核辛苦啦～</div>
+        <div class="sub">AI 审核护航，通过即发布～</div>
       </div>
 
       <div class="head-image">
@@ -140,12 +140,12 @@
         <div class="field">
           <div class="label">选择图片文件（必选）</div>
           <input class="input file" type="file" accept="image/*" @change="onFile" required />
-          <div class="hint">建议清晰原图；提交后进入待审核队列。</div>
+          <div class="hint">建议清晰原图；提交后AI将进行内容检测。</div>
         </div>
 
         <div class="actions">
           <button class="btn" :disabled="submitting || !file" data-sfx="click">
-            {{ submitting ? '提交中…' : '提交' }}
+            {{ submitting ? 'AI检测提交中…' : '提交' }}
           </button>
           <span class="msg">{{ msg }}</span>
         </div>
@@ -296,7 +296,6 @@ async function submit(){
     if(sourceType.value === 'personal'){
       fd.append('uploader_uid', uid.value.trim())
       
-      // 合并两个数组，并添加前缀以便区分
       const combinedLicenses = [
         ...netLicenses.value.map(x => `NET:${x}`),
         ...groupLicenses.value.map(x => `GROUP:${x}`)
@@ -305,9 +304,17 @@ async function submit(){
     }
 
     const r = await api.uploadArtwork(fd)
-    msg.value = r.pointsWillBeAddedAfterApprove
-      ? '提交成功 ✅（若审核通过，将自动记 15 积分）'
-      : '提交成功 ✅（待管理员审核）'
+    
+    // 根据返回的状态显示不同的提示
+    if (r.status === 'approved') {
+      msg.value = r.pointsAdded 
+        ? '发布成功！✅（AI审核通过，积分已发放）'
+        : '发布成功！✅（AI审核通过）'
+    } else if (r.status === 'flagged') {
+      msg.value = '提交成功，但内容需人工复核 🤖'
+    } else {
+      msg.value = '提交成功，进入待审核队列'
+    }
 
     // reset form
     title.value = ''
@@ -333,14 +340,14 @@ async function submit(){
   justify-content: space-between;
   gap: 20px; 
   margin-bottom: 24px;
-  position: relative; /* 关键：作为绝对定位图片的基准 */
+  position: relative; 
 }
 
 .head-content {
   flex: 1; 
   display: grid; 
   gap: 6px;
-  z-index: 2; /* 文字在图片之上 */
+  z-index: 2; 
 }
 
 .h1 { font-size: 36px; font-weight: 950; letter-spacing: .4px; }
@@ -349,9 +356,9 @@ async function submit(){
 /* 头部装饰图 (电脑端样式) */
 .head-image img {
   position: absolute;
-  right: 0;        /* 靠右 */
-  bottom: -20px;   /* 底部对齐，可微调 */
-  height: 220px;   /* 保持原始大小 */
+  right: 0;        
+  bottom: -20px;   
+  height: 220px;   
   width: auto;
   object-fit: contain;
   filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
@@ -376,20 +383,15 @@ async function submit(){
   position: absolute;
   inset: 0;
   z-index: -1;
-  /* 恢复背景图片 */
   background-image: url('766.jpg');
   background-position: center;
   background-repeat: no-repeat;
-  
-  /* 关键修复：锁定宽度 100%，高度自动。防止表单变长时背景重绘跳动 */
   background-size: 100% auto; 
-  
   filter: blur(0px) saturate(1.2); 
   transform: scale(1); 
   opacity: 1;
 }
 
-/* 分区透明化 */
 .block {
   padding: 24px 32px;
   border-radius: 0;
@@ -419,13 +421,12 @@ async function submit(){
 .field{ display:grid; gap:8px; }
 .label{ font-weight:950; font-size:20px; opacity:.85; letter-spacing:.3px; }
 
-/* 输入框高度透明化 */
 .input, .textarea{
   width:100%;
   padding:12px 14px;
   border-radius:12px;
   border:1px solid rgba(0,0,0,.1); 
-  background: rgba(255,255,255,0.35); /* 高度透明 */
+  background: rgba(255,255,255,0.35); 
   font-weight: 850;
   outline:none;
   transition: all 0.2s;
@@ -450,10 +451,9 @@ async function submit(){
 
 .seg{ display:flex; gap:8px; flex-wrap:wrap; }
 
-/* 单选按钮透明化 */
 .segbtn{
   border:1px solid rgba(0,0,0,.1);
-  background: rgba(255,255,255,.15); /* 透明 */
+  background: rgba(255,255,255,.15); 
   padding:9px 16px;
   border-radius:999px;
   cursor:pointer;
@@ -472,7 +472,6 @@ async function submit(){
   box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
-/* 文件选择框透明化 */
 .file{ padding:10px; background: rgba(255,255,255,0.35); backdrop-filter: blur(2px); }
 
 .actions{ display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-top: 10px; }
@@ -483,7 +482,6 @@ async function submit(){
 
 .tagList{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top: 6px; }
 
-/* 标签 Chip 透明化 */
 .tagChip{
   display:inline-flex;
   align-items:center;
@@ -491,7 +489,7 @@ async function submit(){
   padding:6px 12px;
   border-radius:8px;
   border:1px solid rgba(0,0,0,.1);
-  background: rgba(255,255,255,0.25); /* 透明 */
+  background: rgba(255,255,255,0.25); 
   font-size:18px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.03);
   backdrop-filter: blur(2px);
@@ -507,14 +505,13 @@ async function submit(){
 }
 .tagChip .x:hover{ color: #d32f2f; }
 
-/* 授权框透明化 */
 .licenseBox{
   display:grid;
   gap:12px;
   padding: 16px;
   border-radius: 16px;
   border: 1px solid rgba(0,0,0,.10);
-  background: rgba(255,255,255,.15); /* 透明 */
+  background: rgba(255,255,255,.15); 
   backdrop-filter: blur(2px);
 }
 .licItem{ display:flex; gap:10px; align-items:flex-start; cursor:pointer; user-select:none; }
@@ -540,7 +537,7 @@ async function submit(){
 .btn:disabled { opacity: 0.6; cursor: not-allowed; background: #9ca3af; }
 
 .btn-ghost {
-  background: rgba(255,255,255,0.35); /* 透明按钮 */
+  background: rgba(255,255,255,0.35); 
   border: 1px solid rgba(0,0,0,0.1);
   color: #374151;
   backdrop-filter: blur(2px);
@@ -548,37 +545,32 @@ async function submit(){
 .btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.4); border-color: rgba(0,0,0,0.3); }
 
 /* =======================================================
-   移动端优化 (仅针对宽度 <= 768px 的设备)
+   移动端优化
    ======================================================= */
 @media (max-width: 768px) {
-  /* 1. 隐藏表单背景图，改用半透明白底 */
   .form::before {
-    background-image: none !important; /* 强制覆盖 */
-    background-color: rgba(255, 255, 255, 0.85); /* 半透明白 */
+    background-image: none !important; 
+    background-color: rgba(255, 255, 255, 0.85); 
   }
 
-  /* 2. 隐藏头部装饰图，节省空间 */
   .head-image {
     display: none;
   }
 
-  /* 3. 头部标题布局调整 */
   .head {
-    flex-direction: column; /* 上下排列 */
+    flex-direction: column; 
     align-items: flex-start;
     gap: 8px;
     margin-bottom: 16px;
   }
-  .h1 { font-size: 28px; } /* 缩小标题 */
+  .h1 { font-size: 28px; } 
   .sub { font-size: 14px; }
 
-  /* 4. 减小表单内边距 */
   .block {
     padding: 20px 16px; 
     gap: 12px;
   }
   
-  /* 5. 调整字号，避免手机上过大 */
   .btitle { font-size: 24px; }
   .label { font-size: 16px; }
   .hint { font-size: 14px; }
