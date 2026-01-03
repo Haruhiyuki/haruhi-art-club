@@ -152,7 +152,7 @@ const upload = multer({
 // =======================
 const app = express()
 
-// ✅ 零依赖 CORS 兜底（一般走 Vite proxy 同源，不会触发）
+// ✅ 零依赖 CORS 兜底
 app.use((req, res, next) => {
   const origin = req.headers.origin
   if(origin){
@@ -175,7 +175,7 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '2mb' }))
 app.use(express.urlencoded({ extended: true }))
 
-// ✅ 匿名 Cookie（不登录也能识别同一用户：点赞限额用）
+// ✅ 匿名 Cookie
 app.use((req, res, next) => {
   const c = parseCookies(req.headers.cookie || '')
   let id = c[COOKIE_NAME]
@@ -196,7 +196,7 @@ app.use('/uploads', express.static(uploadsDir))
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 
 // =======================
-// 公共：artworks 列表（后端仅做“查询与返回”）
+// 公共：artworks 列表
 // =======================
 app.get('/api/artworks', async (req, res) => {
   const db = getDb()
@@ -250,19 +250,18 @@ app.get('/api/artworks', async (req, res) => {
   res.json({ ok:true, data: rows.map(mapArtworkRow), total })
 })
 
-// 兼容你现有前端：/api/gallery（前端 store 会做 balanced 混合，后端这里只做普通列表）
+// 兼容现有前端：/api/gallery
 app.get('/api/gallery', async (req, res) => {
-  // 前端仍可能传：content / sourceMode / q / page / pageSize
-  const content = String(req.query.content || 'haruhi') // haruhi|other
-  const sourceMode = String(req.query.sourceMode || 'balanced') // balanced|personal|network
+  const content = String(req.query.content || 'haruhi')
+  const sourceMode = String(req.query.sourceMode || 'balanced')
   const q = String(req.query.q || '').trim()
   const page = clampInt(req.query.page, 1, 9999, 1)
   const pageSize = clampInt(req.query.pageSize, 6, 48, 24)
 
-  // sourceMode=balanced 时，后端不做混合（由前端 store 处理）
   const source_type = (sourceMode === 'personal' || sourceMode === 'network') ? sourceMode : 'all'
   const content_type = (content === 'haruhi' || content === 'other') ? content : 'all'
 
+  // ✅ 关键点：这里强制只返回 status='approved'，这样 'hidden'（下架）状态的作品在前台就会完全消失
   req.query.status = 'approved'
   req.query.content_type = content_type
   req.query.source_type = source_type
@@ -270,12 +269,11 @@ app.get('/api/gallery', async (req, res) => {
   req.query.page = page
   req.query.pageSize = pageSize
 
-  // 直接复用 /api/artworks 的处理逻辑
   return app._router.handle(req, res, () => {})
 })
 
 // =======================
-// 上传投稿：只做数据写入（pending）
+// 上传投稿
 // =======================
 app.post('/api/artworks', upload.single('image'), async (req, res) => {
   const db = getDb()
@@ -286,11 +284,10 @@ app.post('/api/artworks', upload.single('image'), async (req, res) => {
 
   const title = safeText(req.body?.title)
   const description = safeText(req.body?.description)
-
   const uploader_name = safeText(req.body?.uploader_name)
   const uploader_uid = safeText(req.body?.uploader_uid)
-  const source_type = safeText(req.body?.source_type) || 'network' // personal|network
-  const content_type = safeText(req.body?.content_type) || 'haruhi' // haruhi|other
+  const source_type = safeText(req.body?.source_type) || 'network'
+  const content_type = safeText(req.body?.content_type) || 'haruhi'
   const origin_url = safeText(req.body?.origin_url)
 
   const tagsArr = normalizeTagsToArray(req.body?.tags)
@@ -304,7 +301,6 @@ app.post('/api/artworks', upload.single('image'), async (req, res) => {
     return res.status(400).json({ ok:false, message:'作品名称与描述为必填' })
   }
 
-  // ✅ 数据约束仍建议保留（这是“数据有效性”，不是业务混合逻辑）
   if(source_type === 'personal'){
     if(!uploader_uid){
       return res.status(400).json({ ok:false, message:'个人作品必须填写唯一ID' })
@@ -315,7 +311,6 @@ app.post('/api/artworks', upload.single('image'), async (req, res) => {
     }
   }
 
-  // file_path：相对 uploadsDir 的路径
   const rel = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/')
   const created_at = new Date().toISOString()
 
@@ -324,20 +319,7 @@ app.post('/api/artworks', upload.single('image'), async (req, res) => {
       (title, description, uploader_name, uploader_uid, source_type, content_type, tags_json, tags_norm, origin_url, file_path, status, review_note, created_at, licenses_json)
      VALUES
       (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', '', ?, ?)`,
-    [
-      title,
-      description,
-      uploader_name || null,
-      uploader_uid || null,
-      source_type,
-      content_type,
-      tags_json,
-      tags_norm,
-      origin_url || null,
-      rel,
-      created_at,
-      licenses_json
-    ]
+    [title, description, uploader_name || null, uploader_uid || null, source_type, content_type, tags_json, tags_norm, origin_url || null, rel, created_at, licenses_json]
   )
 
   res.json({ ok:true })
@@ -364,11 +346,10 @@ app.get('/api/creators/:uid', async (req, res) => {
 })
 
 app.get('/api/creators/:uid/works', async (req, res) => {
-  // 直接复用 artworks 列表：approved + personal + uploader_uid
   req.query.status = 'approved'
   req.query.source_type = 'personal'
   req.query.uploader_uid = req.params.uid
-  req.query.content_type = String(req.query.content || 'all') // all|haruhi|other
+  req.query.content_type = String(req.query.content || 'all')
   return app._router.handle(req, res, () => {})
 })
 
@@ -420,7 +401,7 @@ app.post('/api/comments', async (req, res) => {
   const art = await db.get(`SELECT id FROM artworks WHERE id=? AND status='approved'`, [artwork_id])
   if(!art) return res.status(404).json({ ok:false, message:'作品不存在或未公开' })
 
-  const avatar_key = crypto.randomInt(1, 13) // 1..12
+  const avatar_key = crypto.randomInt(1, 13)
   const created_at = new Date().toISOString()
 
   const r = await db.run(
@@ -436,7 +417,7 @@ app.post('/api/comments', async (req, res) => {
 })
 
 // =======================
-// likes（这里建议仍留在后端：属于数据一致性与限额）
+// likes
 // =======================
 function dayKey(){
   return new Date().toISOString().slice(0, 10) // YYYY-MM-DD
@@ -525,11 +506,11 @@ app.post('/api/likes/comment/:id', async (req, res) => {
 })
 
 // =======================
-// 管理后台：只做状态变更与读写（积分逻辑移到前端 store）
+// 管理后台：只做状态变更与读写
 // =======================
 function requireAdminIfConfigured(req, res, next){
   const expected = String(process.env.ADMIN_PASSWORD || '').trim()
-  if(!expected) return next() // 未设置则不启用鉴权（兼容你现在的开发阶段）
+  if(!expected) return next() // 未设置则不启用鉴权
   const got = req.header('x-admin-password') || ''
   if(got !== expected) return res.status(401).json({ ok:false, message:'未通过管理后台鉴权' })
   next()
@@ -547,22 +528,22 @@ app.get('/api/admin/pending-artworks', requireAdminIfConfigured, async (req, res
   res.json({ ok:true, data: rows.map(mapArtworkRow) })
 })
 
-// ✅ 新增：审核记录 (audit history)
+// ✅ 修改：审核记录 (audit history)
+// 这里必须包含 'hidden' 状态，否则下架的作品在管理后台也看不到了
 app.get('/api/admin/audit-history', requireAdminIfConfigured, async (req, res) => {
   const db = getDb()
   const rows = await db.all(
     `SELECT a.*, c.avatar_url AS uploader_avatar
      FROM artworks a
      LEFT JOIN creators c ON c.uid=a.uploader_uid
-     WHERE a.status IN ('approved', 'rejected')
+     WHERE a.status IN ('approved', 'rejected', 'hidden')
      ORDER BY datetime(a.reviewed_at) DESC, datetime(a.created_at) DESC
-     LIMIT 500` // 限制数量，防止数据过多
+     LIMIT 500`
   )
   res.json({ ok:true, data: rows.map(mapArtworkRow) })
 })
 
 app.get('/api/admin/artworks', requireAdminIfConfigured, async (req, res) => {
-  // 复用 /api/artworks：管理员需要 all 状态
   req.query.status = String(req.query.status || 'all')
   return app._router.handle(req, res, () => {})
 })
@@ -582,8 +563,6 @@ app.post('/api/admin/artworks/:id/approve', requireAdminIfConfigured, async (req
     `UPDATE artworks SET status='approved', review_note=?, reviewed_at=? WHERE id=?`,
     [note, now, id]
   )
-
-  // ✅ 不再在后端发积分（积分规则由前端 store 决定）
   res.json({ ok:true })
 })
 
@@ -602,7 +581,21 @@ app.post('/api/admin/artworks/:id/reject', requireAdminIfConfigured, async (req,
     `UPDATE artworks SET status='rejected', review_note=?, reviewed_at=? WHERE id=?`,
     [note, now, id]
   )
+  res.json({ ok:true })
+})
 
+// ✅ 新增：更改作品状态 (下架/恢复)
+app.post('/api/admin/artworks/:id/status', requireAdminIfConfigured, async (req, res) => {
+  const db = getDb()
+  const id = Number(req.params.id)
+  const status = String(req.body?.status || '').trim()
+
+  // 仅允许 'hidden' (下架) 或 'approved' (恢复上架)
+  if(!['hidden', 'approved'].includes(status)){
+    return res.status(400).json({ ok:false, message:'目标状态无效' })
+  }
+
+  await db.run(`UPDATE artworks SET status=? WHERE id=?`, [status, id])
   res.json({ ok:true })
 })
 
@@ -632,7 +625,28 @@ app.get('/api/admin/creators', requireAdminIfConfigured, async (req, res) => {
   res.json({ ok:true, data: rows })
 })
 
-// ✅ 给前端 store 用：发放积分（只做插入与去重）
+// ✅ 新增：添加创作者
+app.post('/api/admin/creators', requireAdminIfConfigured, async (req, res) => {
+  const db = getDb()
+  const uid = String(req.body?.uid || '').trim()
+  if(!uid) return res.status(400).json({ ok:false, message:'uid 必填' })
+
+  // 查重
+  const exist = await db.get(`SELECT uid FROM creators WHERE uid=?`, [uid])
+  if(exist) return res.status(400).json({ ok:false, message:'UID已存在' })
+
+  const now = new Date().toISOString()
+  // 默认给一个空头像
+  await db.run(`INSERT INTO creators(uid, avatar_url, created_at) VALUES(?,'',?)`, [uid, now])
+  
+  res.json({ ok:true })
+})
+
+// 导入创作者 (保留接口)
+app.post('/api/admin/creators/import', requireAdminIfConfigured, async (req, res) => {
+  res.json({ ok:true })
+})
+
 app.post('/api/admin/points/grant', requireAdminIfConfigured, async (req, res) => {
   const db = getDb()
   const uid = String(req.body?.uid || '').trim()

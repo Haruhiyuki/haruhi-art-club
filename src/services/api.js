@@ -100,7 +100,7 @@ export const api = {
   async adminPendingArtworks(){
     return await request('GET', '/api/admin/pending-artworks')
   },
-  // ✅ 新增：获取审核记录 (历史归档)
+  // 获取审核记录 (历史归档)
   async adminAuditHistory(){
     return await request('GET', '/api/admin/audit-history')
   },
@@ -116,13 +116,22 @@ export const api = {
   async adminRejectArtwork(id, note=''){
     return await request('POST', `/api/admin/artworks/${encodeURIComponent(id)}/reject`, { body: { note } })
   },
+  
+  // ✅ 新增：更新作品状态 (用于下架/恢复)
+  async adminUpdateArtworkStatus(id, status){
+    return await request('POST', `/api/admin/artworks/${encodeURIComponent(id)}/status`, { body: { status } })
+  },
+
   async adminGrantPoints({ uid, artwork_id, points, note }){
     return await request('POST', '/api/admin/points/grant', { body: { uid, artwork_id, points, note } })
   },
-  async adminAddCreator(body){
-    return { ok: true } 
+  
+  // ✅ 修改：添加创作者
+  async adminAddCreator(uid){
+    return await request('POST', '/api/admin/creators', { body: { uid } })
   },
+  
   async adminImportCreators(list){
-    return { ok: true }
+    return await request('POST', '/api/admin/creators/import', { body: { list } })
   }
 }

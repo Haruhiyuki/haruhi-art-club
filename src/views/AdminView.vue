@@ -101,8 +101,8 @@
           <article class="pcard history-card" v-for="it in auditHistory" :key="it.id">
             <div class="pthumb">
               <img :src="it.image_url" :alt="it.title" />
-              <div class="status-overlay" :class="it.status === 'approved' ? 'approved' : 'rejected'">
-                {{ it.status === 'approved' ? '已通过' : '已驳回' }}
+              <div class="status-overlay" :class="getStatusClass(it.status)">
+                {{ getStatusText(it.status) }}
               </div>
             </div>
 
@@ -141,6 +141,25 @@
                 <span>上传于: {{ new Date(it.created_at).toLocaleString() }}</span>
                 <span v-if="it.review_note" style="color:red; margin-left:10px;">备注: {{ it.review_note }}</span>
               </div>
+
+              <div class="pactions manage-actions">
+                <button 
+                  v-if="it.status === 'approved'" 
+                  class="btn-warn" 
+                  @click="toggleTakeDown(it, true)"
+                  :disabled="loading"
+                >
+                  下架
+                </button>
+                <button 
+                  v-if="it.status === 'hidden'" 
+                  class="btn" 
+                  @click="toggleTakeDown(it, false)"
+                  :disabled="loading"
+                >
+                  撤销下架
+                </button>
+              </div>
             </div>
           </article>
         </div>
@@ -167,7 +186,17 @@
       <div v-if="tab==='creators'" class="section">
         <div class="sectionHead">
           <div class="h2">创作者名单</div>
-          <button class="btn-ghost" @click="loadCreators" :disabled="loading">{{ loading ? '加载中…' : '刷新' }}</button>
+          <div class="action-row">
+            <input 
+              v-model="newCreatorUid" 
+              placeholder="输入UID添加" 
+              class="input-mini" 
+              @keydown.enter="addCreator"
+            />
+            <button class="btn" @click="addCreator" :disabled="addingCreator || !newCreatorUid">添加</button>
+            <div class="vr"></div>
+            <button class="btn-ghost" @click="loadCreators" :disabled="loading">{{ loading ? '加载中…' : '刷新' }}</button>
+          </div>
         </div>
         <div v-if="creators.length" class="ctable">
           <div class="crow" v-for="c in creators" :key="c.uid">
@@ -198,7 +227,11 @@ const actingId = ref(null)
 
 const ledger = ref([])
 const creators = ref([])
-const auditHistory = ref([]) // 新增：审核历史数据
+const auditHistory = ref([])
+
+// 新增状态：添加创作者
+const newCreatorUid = ref('')
+const addingCreator = ref(false)
 
 function checkPw(){
   if(inputPw.value === '05219'){
@@ -214,7 +247,7 @@ async function init(){
   await adminStore.loadPending()
 }
 
-// 辅助函数：解析授权
+// 辅助函数
 function getNetLicenses(it) {
   const all = Array.isArray(it.licenses) ? it.licenses : []
   return all.filter(l => l.startsWith('NET:')).map(l => l.replace('NET:', ''))
@@ -225,11 +258,26 @@ function getGroupLicenses(it) {
   return all.filter(l => l.startsWith('GROUP:')).map(l => l.replace('GROUP:', ''))
 }
 
+// 状态样式辅助
+function getStatusClass(status) {
+  if (status === 'approved') return 'approved'
+  if (status === 'rejected') return 'rejected'
+  if (status === 'hidden') return 'hidden'
+  return ''
+}
+
+function getStatusText(status) {
+  if (status === 'approved') return '已通过'
+  if (status === 'rejected') return '已驳回'
+  if (status === 'hidden') return '已下架'
+  return status
+}
+
+// 审核操作
 async function approve(it){
   actingId.value = it.id
   try {
     await adminStore.approveArtwork(it, notes.value[it.id] || '')
-    // 审核后如果有需要可以刷新积分流水
     if(tab.value === 'points') loadLedger()
   } finally {
     actingId.value = null
@@ -245,6 +293,7 @@ async function reject(it){
   }
 }
 
+// 列表加载
 async function loadLedger(){
   loading.value = true
   try {
@@ -265,14 +314,11 @@ async function loadCreators(){
   }
 }
 
-// 新增：加载审核历史
 async function loadAuditHistory(){
   loading.value = true
   try {
-    if(api.adminAuditHistory) {
-      const r = await api.adminAuditHistory()
-      auditHistory.value = r.data || []
-    }
+    const r = await api.adminAuditHistory()
+    auditHistory.value = r.data || []
   } catch(e) {
     console.error(e)
   } finally {
@@ -280,7 +326,42 @@ async function loadAuditHistory(){
   }
 }
 
-// 监听 tab 切换，自动加载数据
+// --- 新增功能：添加创作者 ---
+async function addCreator() {
+  const uid = newCreatorUid.value.trim()
+  if(!uid) return
+  
+  addingCreator.value = true
+  try {
+    await api.adminAddCreator(uid)
+    newCreatorUid.value = '' // 清空输入框
+    await loadCreators() // 刷新列表
+  } catch(e) {
+    alert(`添加失败: ${e.message}`)
+  } finally {
+    addingCreator.value = false
+  }
+}
+
+// --- 新增功能：下架/恢复 ---
+async function toggleTakeDown(item, isHide) {
+  const actionName = isHide ? '下架' : '撤销下架'
+  if(!confirm(`确定要${actionName}该作品吗？`)) return
+
+  loading.value = true
+  try {
+    const targetStatus = isHide ? 'hidden' : 'approved'
+    await api.adminUpdateArtworkStatus(item.id, targetStatus)
+    
+    // 乐观更新本地状态
+    item.status = targetStatus
+  } catch(e) {
+    alert(`操作失败: ${e.message}`)
+  } finally {
+    loading.value = false
+  }
+}
+
 watch(tab, (newTab) => {
   if (newTab === 'audit') loadAuditHistory()
   if (newTab === 'points') loadLedger()
@@ -360,7 +441,7 @@ onMounted(() => {
 .l-tag.group { background: #fce7f3; color: #9d174d; font-weight: bold; }
 
 /* 审核记录相关样式 */
-.history-card { opacity: 0.9; } /* 历史记录稍微淡一点 */
+.history-card { opacity: 0.9; }
 .small-meta { font-size: 12px; color: #888; text-align: right; }
 .status-overlay {
   position: absolute; top: 0; left: 0; right: 0;
@@ -369,4 +450,36 @@ onMounted(() => {
 }
 .status-overlay.approved { background: rgba(20, 184, 166, 0.85); }
 .status-overlay.rejected { background: rgba(239, 68, 68, 0.85); }
+.status-overlay.hidden { background: rgba(100, 116, 139, 0.9); } /* 已下架：蓝灰色 */
+
+/* 管理操作栏样式 */
+.manage-actions {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+}
+.btn-warn {
+  background: #ef4444; /* 红色警告 */
+  color: #fff;
+  border: 0; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+}
+
+.action-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.input-mini {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 13px;
+  width: 140px;
+}
+.vr {
+  width: 1px;
+  height: 20px;
+  background: #ddd;
+  margin: 0 4px;
+}
 </style>
