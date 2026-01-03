@@ -377,12 +377,12 @@ async function submit(){
   inset: 0;
   z-index: -1;
   /* 恢复背景图片 */
-  background-image: url('122.jpg');
+  background-image: url('766.jpg');
   background-position: center;
   background-repeat: no-repeat;
   
   /* 关键修复：锁定宽度 100%，高度自动。防止表单变长时背景重绘跳动 */
-  background-size: 122% auto; 
+  background-size: 100% auto; 
   
   filter: blur(0px) saturate(1.2); 
   transform: scale(1); 

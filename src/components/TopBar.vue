@@ -40,7 +40,7 @@ function enterAdmin() {
 
 <style scoped>
 .topbar__inner {
-  /* --- 布局定位 (保留) --- */
+  /* --- 布局定位 --- */
   position: fixed; 
   top: 0;
   left: 0;
@@ -53,13 +53,12 @@ function enterAdmin() {
   justify-content: space-between;
   gap: 16px;
   padding: 0 24px;
-  border-radius: 0; 
-
-  /* --- 核心修改：视觉全透明 --- */
-  background: transparent; /* 背景透明 */
-  border: none;            /* 去掉边框 */
-  box-shadow: none;        /* 去掉阴影/遮罩 */
-  backdrop-filter: none;   /* 去掉毛玻璃，追求极致透视 */
+  
+  /* --- 视觉风格：全透明 --- */
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
@@ -71,16 +70,16 @@ function enterAdmin() {
   user-select: none;
   color: #fff; 
   text-shadow: 0 2px 4px rgba(0,0,0,0.6);
-  /* 手机端允许 logo 压缩空间，防止溢出 */
-  flex-shrink: 1; 
-  min-width: 0;
+  
+  /* 关键：防止 Logo 被压缩 */
+  flex-shrink: 0; 
 }
 
 .brand__mark {
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background-image: url('892.jpg');
+  background-image: url('892.jpg'); /* 请确保图片路径正确 */
   background-size: cover;
   background-position: center;
   border: 1px solid rgba(255, 255, 255, 0.6);
@@ -90,8 +89,10 @@ function enterAdmin() {
 }
 
 .brand__text {
-  /* 确保文字在小屏幕下能截断而不是撑开 */
-  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* 默认情况下内容不压缩 */
   overflow: hidden;
 }
 
@@ -101,6 +102,7 @@ function enterAdmin() {
   line-height: 1.1;
   font-size: 15px;
   white-space: nowrap;
+  /* 如果实在太长，允许省略号 */
   text-overflow: ellipsis;
   overflow: hidden;
 }
@@ -120,7 +122,7 @@ function enterAdmin() {
   display: flex;
   align-items: center;
   gap: 32px;
-  flex-shrink: 0; /* 导航栏按钮不许压缩 */
+  flex-shrink: 0; /* 导航区不许被压缩，保证按钮完整 */
 }
 
 .navlink {
@@ -137,6 +139,7 @@ function enterAdmin() {
   border: 1px solid rgba(255,255,255,0.5);
   box-shadow: 0 4px 8px rgba(0,0,0,0.2);
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  text-decoration: none; /* 确保链接无下划线 */
 }
 
 .navlink:hover { transform: translateY(-2px) scale(1.05); box-shadow: 0 8px 16px rgba(0,0,0,0.25); }
@@ -160,32 +163,57 @@ function enterAdmin() {
 .adminBtn:hover { transform: rotate(5deg) scale(1.1); }
 .adminBtn:active { transform: scale(0.95); }
 
-/* --- 手机端适配 --- */
+/* =========================================
+   手机端自适应优化 (宽度 <= 768px)
+   ========================================= */
 @media (max-width: 768px) {
   .topbar__inner {
-    padding: 0 16px;
+    /* 1. 减小两边内边距，给内容更多空间 */
+    padding: 0 12px;
+    /* 2. 减小中间间距 */
+    gap: 8px;
   }
   
+  .brand {
+    /* 3. 核心修改：允许 brand 区域占据剩余所有空间 */
+    flex: 1;
+    /* 4. 核心修改：允许 flex 子元素内部收缩 (否则文字会将容器撑开导致溢出) */
+    min-width: 0;
+    gap: 8px; /* 减小 logo 和文字的间距 */
+  }
+
+  .brand__mark {
+    /* 5. 稍微缩小 logo，省出空间给文字 */
+    width: 36px;
+    height: 36px;
+  }
+
+  .brand__title {
+    /* 6. 稍微调小标题字号 */
+    font-size: 14px;
+    line-height: 1.2;
+  }
+
+  .brand__sub {
+    /* 7. 调小副标题字号，确保能放下更多字 */
+    font-size: 10px;
+    margin-top: 0;
+    opacity: 0.9;
+  }
+
   .nav {
-    gap: 12px; /* 缩小按钮间距 */
+    /* 8. 减小导航按钮之间的间距 */
+    gap: 8px;
   }
 
   .navlink {
-    padding: 6px 16px; /* 稍微缩小按钮尺寸 */
-    font-size: 18px;
+    /* 9. 以前是 18px 太大了，导致挤压左边。改为 14px 比较平衡 */
+    font-size: 14px;
+    padding: 6px 12px; /* 减小按钮内边距 */
   }
 
-  /* 手机端隐藏后台按钮 */
   .adminBtn {
     display: none;
-  }
-  
-  /* 调整标题大小以适应小屏 */
-  .brand__title {
-    font-size: 17px;
-  }
-  .brand__sub {
-    font-size: 12px;
   }
 }
 </style>
