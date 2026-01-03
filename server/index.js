@@ -15,6 +15,8 @@ const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data.sqlite')
 const COOKIE_NAME = 'haruhi_anon'
 const COOKIE_SIG = 'haruhi_anon_sig'
 const COOKIE_SECRET = process.env.COOKIE_SECRET || 'dev-cookie-secret-change-me'
+// 获取环境变量中的管理员密码，如果没有设置则默认禁止访问或设置一个强密码
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'CHANGE_THIS_PASSWORD_IN_ENV'
 
 // ... helper functions ...
 function b64url(buf) {
@@ -69,10 +71,6 @@ function safeJsonArr(s) {
   }
 }
 
-function makeLike(q) {
-  return `%${String(q || '').trim().replace(/[%_]/g, '')}%`
-}
-
 function makeTagsNorm(tags) {
   const norm = (tags || []).map(t => String(t).toLowerCase()).join(' ')
   return norm ? ` ${norm} ` : ''
@@ -124,9 +122,7 @@ function mapArtworkRow(r) {
     review_note: r.review_note || '',
     status: r.status,
     like_total: Number(r.like_total || 0),
-    // 展示用的图 (WebP)
     image_url: r.file_path ? `/uploads/${r.file_path}` : '',
-    // 下载用的原图 (如果不存在 file_path_original 则回退到 file_path)
     original_url: r.file_path_original ? `/uploads/${r.file_path_original}` : (r.file_path ? `/uploads/${r.file_path}` : ''),
     ai_reason: r.ai_reason || ''
   }
@@ -209,7 +205,6 @@ app.get('/api/points/leaderboard', async (req, res) => {
   const pageSize = 10
   const offset = (page - 1) * pageSize
 
-  // 聚合计算每个 UID 的总分
   const rows = await db.all(`
     SELECT pl.uid, SUM(pl.points) as total, c.avatar_url
     FROM points_ledger pl
@@ -228,11 +223,9 @@ app.get('/api/points/history', async (req, res) => {
   const uid = String(req.query.uid || '').trim()
   if(!uid) return res.json({ ok: false, message: 'Missing uid' })
 
-  // 计算总分
   const totalRow = await db.get(`SELECT SUM(points) as total FROM points_ledger WHERE uid=?`, [uid])
   const total = Number(totalRow?.total || 0)
 
-  // 获取最近变动记录
   const history = await db.all(`
     SELECT pl.points, pl.note, pl.created_at, a.title as artwork_title
     FROM points_ledger pl
@@ -242,19 +235,17 @@ app.get('/api/points/history', async (req, res) => {
     LIMIT 50
   `, [uid])
 
-  // 获取创作者基本信息
   const creator = await db.get(`SELECT uid, avatar_url FROM creators WHERE uid=?`, [uid])
 
   res.json({ ok: true, total, history, creator })
 })
 
-// 3. 创作者模糊搜索 (用于自动补全)
+// 3. 创作者模糊搜索
 app.get('/api/creators/search', async (req, res) => {
   const db = getDb()
   const q = String(req.query.q || '').trim()
   if(!q) return res.json({ ok: true, data: [] })
   
-  // 简单的模糊匹配
   const like = `%${q}%`
   const rows = await db.all(`
     SELECT uid, avatar_url FROM creators 
@@ -412,23 +403,18 @@ app.post('/api/artworks', uploadFields, async (req, res) => {
     [title, description, uploader_name || null, uploader_uid || null, source_type, content_type, tags_json, tags_norm, origin_url || null, relDisplay, relOriginal, finalStatus, review_note, reviewed_at, created_at, licenses_json, review_note]
   )
 
-  // --- 修改后的积分逻辑 ---
+  // 积分逻辑
   let pointsAdded = false
   if (finalStatus === 'approved' && source_type === 'personal' && uploader_uid) {
     let points = 0
     let note = ''
-
-    // 凉宫个人作品: 120分
     if (content_type === 'haruhi') {
       points = 120
       note = '投稿凉宫个人作品奖励'
-    } 
-    // 其他个人作品: 30分
-    else {
+    } else {
       points = 30
       note = '投稿其他个人作品奖励'
     }
-
     if (points > 0) {
       try {
         await db.run(
@@ -441,7 +427,6 @@ app.post('/api/artworks', uploadFields, async (req, res) => {
       }
     }
   }
-  // -----------------------
 
   res.json({
     ok: true,
@@ -546,12 +531,31 @@ app.post('/api/likes/comment/:id', async (req, res) => {
   res.status(out.status).json(out.body)
 })
 
+// === 管理员中间件 ===
 function requireAdmin(req, res, next) {
-  const expected = String(process.env.ADMIN_PASSWORD || '').trim()
-  if (expected && (req.header('x-admin-password') || '') !== expected) return res.status(401).json({ ok: false })
+  // 从环境变量获取密码，如果没有则阻止
+  const expected = String(ADMIN_PASSWORD || '').trim()
+  if (!expected) return res.status(500).json({ ok: false, message: 'Server configuration error' })
+  
+  if ((req.header('x-admin-password') || '') !== expected) return res.status(401).json({ ok: false })
   next()
 }
 
+// === 新增：管理员登录验证接口 ===
+app.post('/api/admin/verify', (req, res) => {
+  const input = String(req.body.password || '').trim()
+  const expected = String(ADMIN_PASSWORD || '').trim()
+  
+  if (!expected) return res.status(500).json({ ok: false, message: 'Server admin password not configured' })
+  
+  if (input === expected) {
+    res.json({ ok: true })
+  } else {
+    res.status(401).json({ ok: false, message: 'Invalid password' })
+  }
+})
+
+// Admin API Routes
 app.get('/api/admin/pending-artworks', requireAdmin, async (req, res) => {
   const db = getDb()
   const rows = await db.all(

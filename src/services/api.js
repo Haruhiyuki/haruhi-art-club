@@ -12,6 +12,7 @@ function buildUrl(path, params) {
 
 async function request(method, path, { params, body, isForm, headers } = {}) {
   const url = buildUrl(path, params)
+  // 获取已存储的密码以用于 header
   const adminPw = localStorage.getItem('admin_pw')
   const authHeaders = adminPw ? { 'x-admin-password': adminPw } : {}
 
@@ -62,6 +63,9 @@ export const api = {
   likeComment: (id) => request('POST', `/api/likes/comment/${id}`, { body: {} }),
   listComments: (artworkId) => request('GET', '/api/comments', { params: { artwork_id: artworkId } }),
   postComment: (body) => request('POST', '/api/comments', { body }),
+
+  // Admin - Auth (新增)
+  adminVerify: (password) => request('POST', '/api/admin/verify', { body: { password } }),
 
   // Admin - Artworks
   adminPendingArtworks: () => request('GET', '/api/admin/pending-artworks'),

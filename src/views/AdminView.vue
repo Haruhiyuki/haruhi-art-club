@@ -1,18 +1,23 @@
 <template>
   <section class="container-card admin-panel">
     <!-- 顶部 -->
-    <div class="head">
-      <div class="h1">管理后台 (AI Enhanced)</div>
-      <div class="sub" v-if="authed">已登录 | 密码：05219</div>
+    <div class="head-row">
+      <div class="head-left">
+        <div class="h1">管理后台 (AI Enhanced)</div>
+        <div class="sub" v-if="authed">已登录 | Security: Backend Env</div>
+      </div>
+      <button v-if="authed" class="btn-ghost sm danger" @click="logout">退出登录</button>
     </div>
 
     <!-- 登录页 -->
     <div v-if="!authed" class="auth-box">
       <div class="form2">
         <input class="input" v-model="inputPw" type="password" placeholder="请输入管理员密码" @keydown.enter="checkPw" />
-        <button class="btn" @click="checkPw">进入系统</button>
+        <button class="btn" @click="checkPw" :disabled="loading">
+          {{ loading ? '验证中...' : '进入系统' }}
+        </button>
       </div>
-      <div class="msg">{{ msg }}</div>
+      <div class="msg" v-if="msg">{{ msg }}</div>
     </div>
 
     <!-- 主面板 -->
@@ -287,6 +292,7 @@ const adminStore = useAdminStore()
 const authed = ref(false)
 const inputPw = ref('')
 const msg = ref('')
+const loading = ref(false)
 
 // 导航状态
 const mainTab = ref('images') // images, comments, creators
@@ -336,14 +342,34 @@ const filteredComments = computed(() => {
 
 // --- 核心方法 ---
 
-function checkPw() {
-  if (inputPw.value === '05219') {
+async function checkPw() {
+  if (!inputPw.value) return
+  loading.value = true
+  msg.value = ''
+  
+  try {
+    // 调用后端验证接口，不再在前端硬编码密码
+    await api.adminVerify(inputPw.value)
+    
+    // 验证成功
     authed.value = true
-    localStorage.setItem('admin_pw', '05219')
+    localStorage.setItem('admin_pw', inputPw.value)
     init()
-  } else {
-    msg.value = '密码错误'
+  } catch (e) {
+    msg.value = '密码错误或无权限'
+    // 验证失败，清除本地存储的错误密码（如果有）
+    localStorage.removeItem('admin_pw')
+  } finally {
+    loading.value = false
   }
+}
+
+// 退出登录
+function logout() {
+  localStorage.removeItem('admin_pw')
+  authed.value = false
+  inputPw.value = ''
+  msg.value = ''
 }
 
 function init() {
@@ -499,10 +525,21 @@ watch(mainTab, (v) => {
   if (v === 'creators') loadCreators()
 })
 
-onMounted(() => {
-  if (localStorage.getItem('admin_pw') === '05219') {
-    authed.value = true;
-    init()
+onMounted(async () => {
+  // 尝试使用本地存储的密码自动登录
+  const savedPw = localStorage.getItem('admin_pw')
+  if (savedPw) {
+    loading.value = true
+    try {
+      await api.adminVerify(savedPw)
+      authed.value = true
+      init()
+    } catch {
+      // 密码失效或过期
+      localStorage.removeItem('admin_pw')
+    } finally {
+      loading.value = false
+    }
   }
 })
 </script>
@@ -514,14 +551,26 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
 }
-.head { margin-bottom: 20px; }
+
+/* 顶部 Header */
+.head-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f3f4f6;
+}
+.head-left { display: flex; flex-direction: column; gap: 4px; }
 .h1 { font-size: 24px; font-weight: 900; color: #1f2937; }
 .sub { font-size: 13px; color: #6b7280; font-family: monospace; }
+
 .auth-box { padding: 40px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .form2 { display: flex; gap: 10px; }
+.msg { color: #dc2626; font-size: 13px; margin-top: 10px; }
 
 /* 布局 */
-.panel-layout { display: flex; flex: 1; border-top: 1px solid #e5e7eb; margin-top: 10px; }
+.panel-layout { display: flex; flex: 1; margin-top: 0px; }
 .main-nav {
   width: 140px;
   border-right: 1px solid #e5e7eb;
