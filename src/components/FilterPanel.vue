@@ -81,12 +81,25 @@
 
     <div class="panel-group search-group">
       <div class="search-wrapper">
+        <!-- 搜索模式选择 -->
+        <select 
+          class="input-3d search-select"
+          :value="searchField"
+          @change="emit('update:searchField', $event.target.value)"
+        >
+          <option value="all">综合搜索</option>
+          <option value="title">搜标题</option>
+          <option value="uid">搜作者(UID)</option>
+          <!-- 仅当当前是tag模式时显示此选项，用于回显 -->
+          <option v-if="searchField === 'tag'" value="tag">搜标签</option>
+        </select>
+
         <input
-          class="input-3d"
+          class="input-3d search-input"
           :value="q"
           @input="emit('update:q', $event.target.value)"
           @keydown.enter="emit('search')"
-          placeholder="搜索作品..."
+          :placeholder="searchPlaceholder"
           type="search"
         />
         <button class="btn-3d btn-primary" type="button" data-sfx="click" @click="emit('search')">
@@ -108,19 +121,33 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
+
 const props = defineProps({
   content: { type: String, default: 'haruhi' },
   sourceMode: { type: String, default: 'all' },
-  q: { type: String, default: '' }
+  q: { type: String, default: '' },
+  searchField: { type: String, default: 'all' }
 })
 
 const emit = defineEmits([
   'update:content',
   'update:sourceMode',
   'update:q',
+  'update:searchField',
   'search',
   'clear'
 ])
+
+const searchPlaceholder = computed(() => {
+  const map = {
+    all: '搜索标题/描述/作者/标签...',
+    title: '请输入作品标题...',
+    uid: '请输入作者UID...',
+    tag: '搜索标签...'
+  }
+  return map[props.searchField] || '搜索作品...'
+})
 </script>
 
 <style scoped>
@@ -223,9 +250,8 @@ const emit = defineEmits([
 
 /* 搜索区域 */
 .search-wrapper { display: flex; gap: 10px; width: 100%; align-items:center; flex-wrap: wrap; }
+
 .input-3d{
-  min-width: 220px;
-  flex: 1;
   padding: 10px 12px;
   border-radius: 14px;
   border: 1px solid rgba(0,0,0,.12);
@@ -233,11 +259,31 @@ const emit = defineEmits([
   font-weight: 850;
   outline: none;
   box-shadow: 0 2px 6px rgba(0,0,0,.03);
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 .input-3d:focus{
   border-color: rgba(20,184,166,.55);
   box-shadow: 0 0 0 4px rgba(20,184,166,.14);
 }
+
+.search-select {
+  /* 下拉菜单样式 */
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 16px;
+  padding-right: 30px;
+  cursor: pointer;
+  width: 100px;
+  flex-shrink: 0;
+}
+
+.search-input {
+  min-width: 200px;
+  flex: 1;
+}
+
 .btn-3d{
   border: 1px solid rgba(0,0,0,.12);
   border-radius: 14px;
@@ -328,6 +374,12 @@ const emit = defineEmits([
     margin-top: 8px;
   }
   
+  .search-select {
+    width: 85px; /* 手机端稍微窄一点 */
+    padding-left: 8px;
+    font-size: 13px;
+  }
+
   .btn-primary { display: none; }
   
   .btn-ghost {
@@ -336,7 +388,7 @@ const emit = defineEmits([
     padding: 10px 10px; /* 紧凑按钮 */
   }
   
-  .input-3d {
+  .search-input {
     min-width: 0; 
   }
 }

@@ -7,7 +7,7 @@ function includesWord(hay, q){
   return norm(hay).includes(norm(q))
 }
 
-function filterLocal(items, { content='haruhi', sourceMode='balanced', q='' }){
+function filterLocal(items, { content='haruhi', sourceMode='balanced', q='', searchField='all' }){
   let arr = items.filter(x => x.status === 'approved')
 
   if(content === 'haruhi' || content === 'other'){
@@ -21,17 +21,28 @@ function filterLocal(items, { content='haruhi', sourceMode='balanced', q='' }){
   const qq = String(q || '').trim()
   if(qq){
     arr = arr.filter(x => {
+      // 简单的本地模拟搜索逻辑
       const tags = Array.isArray(x.tags) ? x.tags.join(' ') : ''
+      const title = x.title || ''
+      const desc = x.description || ''
+      const uid = x.uploader_uid || ''
+      const name = x.uploader_name || ''
+
+      if(searchField === 'title') return includesWord(title, qq)
+      if(searchField === 'uid') return includesWord(uid, qq) || includesWord(name, qq)
+      if(searchField === 'tag') return includesWord(tags, qq)
+      
+      // all
       return (
-        includesWord(x.title, qq) ||
-        includesWord(x.description, qq) ||
+        includesWord(title, qq) ||
+        includesWord(desc, qq) ||
         includesWord(tags, qq) ||
-        includesWord(x.uploader_uid, qq)
+        includesWord(uid, qq) ||
+        includesWord(name, qq)
       )
     })
   }
 
-  // 默认按 created_at 倒序
   arr.sort((a,b) => String(b.created_at||'').localeCompare(String(a.created_at||'')))
   return arr
 }
@@ -44,9 +55,10 @@ function paginate(arr, page, pageSize){
 
 export const useGalleryStore = defineStore('gallery', {
   state: () => ({
-    content: 'haruhi',          // haruhi|other
-    sourceMode: 'balanced',     // balanced|personal|network
+    content: 'haruhi',
+    sourceMode: 'balanced',
     q: '',
+    searchField: 'all', // 新增：搜索范围字段
     page: 1,
     pageSize: 24,
 
@@ -63,6 +75,7 @@ export const useGalleryStore = defineStore('gallery', {
       if(patch.content !== undefined) this.content = patch.content
       if(patch.sourceMode !== undefined) this.sourceMode = patch.sourceMode
       if(patch.q !== undefined) this.q = patch.q
+      if(patch.searchField !== undefined) this.searchField = patch.searchField // 新增
       if(patch.page !== undefined) this.page = patch.page
       if(patch.pageSize !== undefined) this.pageSize = patch.pageSize
     },
@@ -73,44 +86,46 @@ export const useGalleryStore = defineStore('gallery', {
       this.usingSeed = false
 
       try{
-        // 1. 混合模式 (balanced)：前端拉取两路数据并合并
+        // 公共参数，现在包含 searchField
+        const commonParams = {
+          q: this.q,
+          searchField: this.searchField, 
+          page: this.page 
+        }
+
+        // 1. 混合模式 (balanced)
         if(this.sourceMode === 'balanced'){
           const halfA = Math.floor(this.pageSize / 2)
           const halfB = this.pageSize - halfA
 
-          const base = { q: this.q, page: this.page, pageSize: halfA }
-          const baseB = { q: this.q, page: this.page, pageSize: halfB }
-
           const [p1, p2] = await Promise.all([
-            api.artworksList({ status:'approved', content_type:this.content, source_type:'personal', ...base }),
-            api.artworksList({ status:'approved', content_type:this.content, source_type:'network', ...baseB }),
+            api.artworksList({ status:'approved', content_type:this.content, source_type:'personal', ...commonParams, pageSize: halfA }),
+            api.artworksList({ status:'approved', content_type:this.content, source_type:'network', ...commonParams, pageSize: halfB }),
           ])
 
           let merged = [...(p1.data||[]), ...(p2.data||[])]
           let total = Number(p1.total||0) + Number(p2.total||0)
 
-          // 补齐逻辑（如果一侧数据不足）
+          // 补齐逻辑
           if(merged.length < this.pageSize){
             const need = this.pageSize - merged.length
-            // 如果个人作品少，用网络作品补
             if((p1.data||[]).length < halfA){
               const extra = await api.artworksList({
                 status:'approved',
                 content_type:this.content,
                 source_type:'network',
-                q: this.q,
-                page: this.page + 1, // 简单起见，从下一页补（可能重，但保证能填满）
+                ...commonParams,
+                page: this.page + 1,
                 pageSize: need,
               })
               merged = merged.concat(extra.data || [])
               total = Math.max(total, Number(extra.total||0) + Number(p1.total||0))
             } else {
-              // 反之用个人作品补
               const extra = await api.artworksList({
                 status:'approved',
                 content_type:this.content,
                 source_type:'personal',
-                q: this.q,
+                ...commonParams,
                 page: this.page + 1,
                 pageSize: need,
               })
@@ -129,17 +144,21 @@ export const useGalleryStore = defineStore('gallery', {
             status:'approved',
             content_type: this.content,
             source_type: this.sourceMode,
-            q: this.q,
-            page: this.page,
+            ...commonParams,
             pageSize: this.pageSize
           })
           this.list = out.data || []
           this.total = Number(out.total || 0)
         }
 
-        // 3. Seed 兜底：如果后端完全没数据 (数据库是空的)，展示本地 mock 数据
+        // 3. Seed 兜底
         if(this.total === 0 && this.page === 1 && !this.q){
-          const local = filterLocal(seedArtworks, { content:this.content, sourceMode:this.sourceMode, q:this.q })
+          const local = filterLocal(seedArtworks, { 
+            content:this.content, 
+            sourceMode:this.sourceMode, 
+            q:this.q, 
+            searchField:this.searchField 
+          })
           const pg = paginate(local, this.page, this.pageSize)
           this.list = pg.data
           this.total = pg.total
@@ -149,8 +168,12 @@ export const useGalleryStore = defineStore('gallery', {
       }catch(e){
         console.warn('API Error, falling back to seed data:', e)
         this.error = e?.message || '加载失败'
-        // 出错也尝试展示 Mock 数据
-        const local = filterLocal(seedArtworks, { content:this.content, sourceMode:this.sourceMode, q:this.q })
+        const local = filterLocal(seedArtworks, { 
+          content:this.content, 
+          sourceMode:this.sourceMode, 
+          q:this.q,
+          searchField:this.searchField
+        })
         const pg = paginate(local, this.page, this.pageSize)
         this.list = pg.data
         this.total = pg.total
@@ -163,26 +186,18 @@ export const useGalleryStore = defineStore('gallery', {
     async likeArtwork(item){
       if(!item) return
       const id = Number(item.id)
-
-      // 负数 ID 是 Mock 数据，仅本地更新
       if(Number.isFinite(id) && id < 0){
         item.like_total = Number(item.like_total || 0) + 1
         return
       }
-
-      // 乐观更新：先在界面上 +1
       const oldVal = item.like_total
       item.like_total = Number(oldVal || 0) + 1
-
       try {
         const out = await api.likeArtwork(id)
-        // 后端确认后，更新为后端返回的准确数值
         item.like_total = Number(out.totalLikes)
       } catch(e){
-        // 失败回滚
         item.like_total = oldVal
         console.error('Like failed:', e)
-        // 可以选择这里弹出一个 Toast 提示用户
       }
     }
   }
