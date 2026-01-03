@@ -12,15 +12,10 @@
 
     <div class="statusRow">
       <div class="left">
-        <button class="btn-ghost" @click="reload" :disabled="store.loading">
-          {{ store.loading ? '加载中…' : '刷新' }}
-        </button>
+  
         <span class="muted" v-if="store.usingSeed">（演示数据）</span>
       </div>
-      <div class="right">
-        <button class="btn-ghost" @click="prevPage" :disabled="store.loading || store.page<=1">上一页</button>
-        <button class="btn-ghost" @click="nextPage" :disabled="store.loading || store.list.length < store.pageSize">下一页</button>
-      </div>
+
     </div>
 
     <div v-if="store.error" class="errorBox">{{ store.error }}</div>

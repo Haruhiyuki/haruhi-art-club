@@ -547,6 +547,20 @@ app.get('/api/admin/pending-artworks', requireAdminIfConfigured, async (req, res
   res.json({ ok:true, data: rows.map(mapArtworkRow) })
 })
 
+// ✅ 新增：审核记录 (audit history)
+app.get('/api/admin/audit-history', requireAdminIfConfigured, async (req, res) => {
+  const db = getDb()
+  const rows = await db.all(
+    `SELECT a.*, c.avatar_url AS uploader_avatar
+     FROM artworks a
+     LEFT JOIN creators c ON c.uid=a.uploader_uid
+     WHERE a.status IN ('approved', 'rejected')
+     ORDER BY datetime(a.reviewed_at) DESC, datetime(a.created_at) DESC
+     LIMIT 500` // 限制数量，防止数据过多
+  )
+  res.json({ ok:true, data: rows.map(mapArtworkRow) })
+})
+
 app.get('/api/admin/artworks', requireAdminIfConfigured, async (req, res) => {
   // 复用 /api/artworks：管理员需要 all 状态
   req.query.status = String(req.query.status || 'all')

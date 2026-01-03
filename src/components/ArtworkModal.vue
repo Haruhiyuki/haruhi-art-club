@@ -1,6 +1,10 @@
 <template>
-  <div v-if="visible" class="modal-overlay" @click.self="close">
-    <section class="modal" role="dialog" aria-modal="true">
+  <div v-if="visible" class="garden-overlay" @click.self="close">
+    <section class="garden-modal" role="dialog" aria-modal="true">
+      
+      <div class="deco-vine"></div>
+      <div class="deco-flower"></div>
+
       <div class="modal__media">
         <img :src="imgSrc" :alt="art?.title || 'artwork'" />
       </div>
@@ -8,7 +12,7 @@
       <div class="modal__side">
         <div class="modal__head">
           <h2>{{ art?.title }}</h2>
-          <button class="icon-btn" type="button" @click="close" data-sfx="click">关闭</button>
+          <button class="icon-btn" type="button" @click="close" data-sfx="click">✕</button>
         </div>
 
         <div class="kv">
@@ -38,33 +42,32 @@
         <div class="sep"></div>
 
         <div>
-          <div class="small-muted" style="font-weight: 950;">授权许可</div>
-          <div v-if="licenses.length === 0" class="small-muted">（未勾选任何授权许可）</div>
+          <div class="small-muted" style="font-weight: 950; color:var(--accent);">授权许可 (网络/公开)</div>
+          <div v-if="publicLicenses.length === 0" class="small-muted">（未勾选任何网络公开授权）</div>
           <ul v-else class="license-list">
-            <li v-for="x in licenses" :key="x">{{ x }}</li>
+            <li v-for="x in publicLicenses" :key="x">{{ x }}</li>
           </ul>
         </div>
 
         <div class="sep"></div>
 
         <div>
-          <div class="small-muted" style="font-weight: 950;">评论</div>
+          <div class="small-muted" style="font-weight: 950; color:var(--accent);">评论</div>
 
-          <div v-if="loadingComments" class="small-muted" style="margin-top: 6px;">加载中…</div>
+          <div v-if="loadingComments" class="small-muted" style="margin-top: 6px;">风正在传送回音…</div>
 
           <div v-else style="display:flex; flex-direction:column; gap:10px; margin-top: 10px;">
-            <div v-if="comments.length === 0" class="small-muted">还没有评论，来抢沙发吧～</div>
+            <div v-if="comments.length === 0" class="small-muted">暂无回音，在此刻留下你的足迹吧～</div>
 
             <div
               v-for="c in comments"
               :key="c.id"
-              class="panel"
-              style="padding:12px; border-radius:16px;"
+              class="panel comment-card"
             >
               <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                <div style="font-weight:950;">
+                <div style="font-weight:950; color:var(--text-deep);">
                   {{ c.user_name }}
-                  <span class="small-muted" style="font-weight:850; margin-left:6px;">
+                  <span class="small-muted" style="font-weight:400; font-family:serif; margin-left:6px; font-style:italic;">
                     {{ c.created_at ? new Date(c.created_at).toLocaleString() : '' }}
                   </span>
                 </div>
@@ -72,14 +75,13 @@
                 <button class="like-pill" type="button" @click="() => likeComment(c)" data-sfx="click">
                   <svg class="heart" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                     <path d="M12 21s-7-4.6-9.4-8.7C.6 9.1 2.2 5.9 5.6 5.1c2-.5 4 .3 5.3 1.8 1.3-1.5 3.3-2.3 5.3-1.8 3.4.8 5 4 3 7.2C19 16.4 12 21 12 21z"
-                      fill="rgba(20, 184, 166, .95)"/>
+                      fill="currentColor"/>
                   </svg>
-                  <b>赞</b>
                   <span class="count">{{ Number(c.like_total || 0) }}</span>
                 </button>
               </div>
 
-              <div style="margin-top:8px; font-weight:850; line-height:1.35;">
+              <div style="margin-top:8px; font-weight:500; line-height:1.6; color:var(--text-main);">
                 {{ c.body }}
               </div>
             </div>
@@ -87,26 +89,26 @@
 
           <div class="sep"></div>
 
-          <div class="panel" style="padding:12px; border-radius:16px;">
-            <div class="small-muted" style="font-weight: 950; margin-bottom:8px;">发表评论</div>
+          <div class="panel input-panel">
+            <div class="small-muted" style="font-weight: 950; margin-bottom:8px; color:var(--accent);">留下一段故事</div>
 
-            <div class="search" style="margin-bottom:10px;">
-              <span class="hint">昵称</span>
-              <input v-model="commentName" placeholder="临时输入一个名字即可" />
+            <div class="search input-row" style="margin-bottom:10px;">
+              <span class="hint">署名</span>
+              <input v-model="commentName" placeholder="幻影之名" />
             </div>
 
-            <div class="search" style="border-radius:16px;">
+            <div class="search input-row" style="height:auto; padding: 10px 12px;">
               <textarea
                 v-model="commentBody"
                 rows="3"
-                placeholder="写点什么吧…"
-                style="width:100%; border:none; outline:none; background:transparent; resize: vertical; font-weight:850;"
+                placeholder="在此刻低语…"
+                style="width:100%; border:none; outline:none; background:transparent; resize: vertical; font-weight:500;"
               ></textarea>
             </div>
 
             <div style="margin-top:10px; display:flex; justify-content:flex-end;">
               <button class="btn btn--accent" type="button" @click="postComment" :aria-disabled="posting ? 'true':'false'" data-sfx="click">
-                {{ posting ? '发送中…' : '发送评论' }}
+                {{ posting ? '传送中…' : '发送' }}
               </button>
             </div>
           </div>
@@ -146,7 +148,14 @@ const imgSrc = computed(() => {
 })
 
 const tags = computed(() => Array.isArray(art.value?.tags) ? art.value.tags : [])
-const licenses = computed(() => Array.isArray(art.value?.licenses) ? art.value.licenses : [])
+
+// 修改：只筛选 NET: 开头的授权，并去掉前缀
+const publicLicenses = computed(() => {
+  const all = Array.isArray(art.value?.licenses) ? art.value.licenses : []
+  return all
+    .filter(l => l.startsWith('NET:'))
+    .map(l => l.replace('NET:', ''))
+})
 
 const comments = ref([])
 const loadingComments = ref(false)
@@ -194,7 +203,7 @@ async function likeComment(c){
     // 乐观更新
     c.like_total = Number(c.like_total || 0) + 1
   }catch(e){
-    // 后端会限额（每天最多 10 次），这里不弹窗也行；你以后想加 toast 我再补
+    // 错误处理
   }
 }
 
@@ -217,152 +226,362 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.modal-overlay{
-  position:fixed;
-  inset:0;
-  background: rgba(255,255,255, .1);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  z-index:999;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  animation: fadeIn .2s ease-out;
+/* =========================
+   主题变量定义：空灵、神秘、花园
+========================= */
+.garden-overlay {
+  --mist-bg: #f4f6f9; /* 晨雾白 */
+  --vine-green: #6b8c85; /* 灰绿藤蔓 */
+  --flower-purple: #bfa2db; /* 淡紫藤 */
+  --flower-pink: #f3d1dc; /* 浅花粉 */
+  --accent: #7a8b99; /* 强调色-青灰 */
+  
+  --text-deep: #434d58; /* 深灰字 */
+  --text-main: #5d6d7e; /* 次深灰字 */
+  
+  --paper-texture: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
+  
+  position: fixed;
+  inset: 0;
+  /* 背景：深邃的模糊，带一点点紫夜色 */
+  background: rgba(20, 25, 35, 0.4);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.4s ease-out;
 }
-@keyframes fadeIn{ from{opacity:0;} to{opacity:1;} }
 
-.modal{
-  width:90vw;
-  height:85vh;
-  max-width:1100px;
-  background: rgba(255,255,255,.88);
-  border:1px solid rgba(0,0,0,.08);
-  border-radius:24px;
-  box-shadow: 0 24px 80px rgba(0,0,0,.15);
-  display:grid;
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* =========================
+   模态框主体：神秘的书页/画框
+   【关键修改】类名从 .modal 改为 .garden-modal
+========================= */
+.garden-modal {
+  width: 90vw;
+  height: 85vh;
+  max-width: 1100px;
+  position: relative;
+  
+  /* 模拟稍微泛黄的厚纸张或羊皮纸 */
+  background: linear-gradient(135deg, #fffcf9 0%, #f7f9fc 100%);
+  
+  /* 【关键修改】显式设置为 visible，允许藤蔓花朵溢出 */
+  overflow: visible;
+
+  /* 边框：双层边框，模拟画框 */
+  border: 4px double rgba(107, 140, 133, 0.2); 
+  border-radius: 20px;
+  
+  /* 阴影：柔和的扩散光晕 */
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+    
+  display: grid;
   grid-template-columns: 1fr 380px;
-  overflow:hidden;
 }
+
+/* =========================
+   装饰元素：枝条与花朵
+========================= */
+/* 使用 mask 和 gradient 模拟藤蔓缠绕 */
+.garden-modal::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 24px;
+  border: 2px solid transparent;
+  /* 渐变边框，像藤蔓的颜色变化 */
+  background: linear-gradient(45deg, var(--vine-green), transparent 40%, transparent 60%, var(--vine-green)) border-box; 
+  -webkit-mask: 
+    linear-gradient(#fff 0 0) padding-box, 
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* 左上角的花朵光晕 */
+.deco-flower {
+  position: absolute;
+  top: -20px;
+  left: -20px;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle at 40% 40%, var(--flower-purple), transparent 70%);
+  filter: blur(20px);
+  opacity: 0.6;
+  z-index: 11;
+  pointer-events: none;
+}
+
+/* 右下角的枝叶光晕 */
+.deco-vine {
+  position: absolute;
+  bottom: -30px;
+  right: -30px;
+  width: 150px;
+  height: 150px;
+  background: radial-gradient(circle, var(--vine-green), transparent 70%);
+  filter: blur(30px);
+  opacity: 0.4;
+  z-index: 11;
+  pointer-events: none;
+}
+
 @media (max-width: 800px){
-  .modal{ grid-template-columns: 1fr; grid-template-rows: 40vh 1fr; height:90vh; }
+  .garden-modal{ grid-template-columns: 1fr; grid-template-rows: 40vh 1fr; height:90vh; }
+  .garden-modal::before { display: none; } /* 移动端简化边框 */
 }
 
-.modal__media{
-  background: #f0f0f0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  position:relative;
-  overflow:hidden;
-}
-.modal__media img{
-  width:100%; height:100%; object-fit:contain;
-  display:block;
-}
-
-.modal__side{
-  display:flex; flex-direction:column;
-  border-left:1px solid rgba(0,0,0,.08);
-  background: rgba(255,255,255,.6);
-  backdrop-filter: blur(12px);
-  padding:20px;
-  overflow-y:auto;
+/* =========================
+   左侧：图片展示区
+========================= */
+.modal__media {
+  background: rgba(240, 242, 245, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px 0 0 16px;
 }
 
-.modal__head{
-  display:flex; align-items:flex-start; justify-content:space-between;
-  gap:12px;
-  margin-bottom:14px;
+/* 给图片加一个内阴影，像嵌在画框里 */
+.modal__media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 20px rgba(107, 140, 133, 0.1);
+  pointer-events: none;
 }
-.modal__head h2{
-  font-size:20px; font-weight:950;
-  line-height:1.3;
-}
-.icon-btn{
-  flex-shrink:0;
-  border:1px solid rgba(0,0,0,.1);
-  background: rgba(255,255,255,.5);
-  border-radius:8px;
-  padding:4px 10px;
-  font-weight:bold;
-  cursor:pointer;
-}
-.icon-btn:hover{ background:#fff; }
 
-.kv{
-  display:grid;
+.modal__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  /* 微微的混合模式，让图片更融入背景 */
+  mix-blend-mode: multiply; 
+  filter: contrast(1.02);
+}
+
+/* =========================
+   右侧：信息卷轴
+========================= */
+.modal__side {
+  display: flex; flex-direction: column;
+  background: rgba(255, 255, 255, 0.4); /* 极度通透 */
+  backdrop-filter: blur(10px);
+  padding: 24px;
+  overflow-y: auto;
+  border-left: 1px solid rgba(107, 140, 133, 0.1);
+  
+  /* 纸张纹理叠加 */
+  background-image: var(--paper-texture);
+  
+  /* 字体设置：使用衬线体增加故事感 */
+  font-family: "Georgia", "Songti SC", "SimSun", serif;
+}
+
+/* 自定义滚动条：细长的藤蔓 */
+.modal__side::-webkit-scrollbar { width: 4px; }
+.modal__side::-webkit-scrollbar-thumb { background: rgba(107, 140, 133, 0.3); border-radius: 4px; }
+.modal__side::-webkit-scrollbar-track { background: transparent; }
+
+/* =========================
+   排版与文字
+========================= */
+.modal__head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.modal__head h2 {
+  font-size: 22px;
+  font-weight: 600; /* 衬线体不需要太粗 */
+  color: var(--text-deep);
+  line-height: 1.4;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 10px rgba(191, 162, 219, 0.2); /* 淡紫光晕 */
+}
+
+/* 关闭按钮：像一颗露珠 */
+.icon-btn {
+  flex-shrink: 0;
+  width: 32px; height: 32px;
+  border: 1px solid rgba(107, 140, 133, 0.2);
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  color: var(--vine-green);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex; align-items: center; justify-content: center;
+}
+.icon-btn:hover {
+  background: #fff;
+  box-shadow: 0 0 10px var(--flower-pink);
+  transform: rotate(90deg);
+  border-color: var(--flower-pink);
+}
+
+/* 键值对信息 */
+.kv {
+  display: grid;
   grid-template-columns: 70px 1fr;
-  gap:6px 10px;
-  font-size:13px;
-  margin-bottom:12px;
+  gap: 8px 12px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  color: var(--text-main);
 }
-.kv b{ font-weight:950; opacity:.5; text-align:right; }
-.small-muted{ font-size:13px; opacity:.75; line-height:1.5; }
-
-.tags{ display:flex; flex-wrap:wrap; gap:6px; }
-.tag-chip{
-  border:1px solid rgba(0,0,0,.08);
-  background: rgba(255,255,255,.6);
-  padding:4px 8px;
-  border-radius:6px;
-  font-size:12px;
-  font-weight:850;
-  color: rgba(20,100,200,.9);
-  cursor:pointer;
+.kv b {
+  font-weight: 600;
+  color: var(--vine-green); /* 标签用藤蔓绿 */
+  text-align: right;
+  opacity: 0.8;
 }
-.tag-chip:hover{ background:#fff; }
-
-.sep{
-  height:1px; background:rgba(0,0,0,.08);
-  margin:16px 0;
+.small-muted {
+  font-size: 13px;
+  color: var(--text-main);
+  opacity: 0.8;
+  line-height: 1.6;
 }
 
-.license-list{
-  margin:6px 0 0 0;
-  padding-left:18px;
-  font-size:13px; opacity:.85; line-height:1.6; font-weight:700;
+/* =========================
+   组件：花瓣标签
+========================= */
+.tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag-chip {
+  border: 1px solid rgba(191, 162, 219, 0.3);
+  background: linear-gradient(to bottom, rgba(255,255,255,0.8), rgba(243, 209, 220, 0.1));
+  padding: 5px 12px;
+  border-radius: 12px 2px 12px 2px; /* 模拟花瓣形状 */
+  font-size: 12px;
+  color: #7b6c88;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: sans-serif; /* 标签还是用无衬线清晰点 */
+}
+.tag-chip:hover {
+  background: #fff;
+  border-color: var(--flower-purple);
+  box-shadow: 0 4px 12px rgba(191, 162, 219, 0.2);
+  transform: translateY(-1px);
 }
 
-.panel{
-  background: rgba(255,255,255,.65);
-  border:1px solid rgba(0,0,0,.06);
+/* 分割线：渐变消失 */
+.sep {
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(107, 140, 133, 0.2), transparent);
+  margin: 20px 0;
 }
 
-.search{
-  display:flex; align-items:center;
-  background: rgba(255,255,255,.75);
-  border:1px solid rgba(0,0,0,.1);
-  border-radius:12px;
-  padding:0 12px;
-  height:40px;
-}
-.search:focus-within{
-  background:#fff;
-  border-color: rgba(20,184,166,.6);
-  box-shadow: 0 0 0 3px rgba(20,184,166,.15);
-}
-.search .hint{ font-size:12px; font-weight:950; opacity:.4; margin-right:8px; }
-.search input{
-  border:none; background:transparent; outline:none;
-  flex:1; font-weight:850; font-size:14px;
+.license-list {
+  margin: 6px 0 0 0;
+  padding-left: 18px;
+  font-size: 13px; opacity: 0.8; line-height: 1.6;
+  color: var(--text-deep);
+  list-style-type: square; /* 方形点 */
 }
 
-.btn--accent{
-  background: #000; color:#fff;
-  border:0; padding:8px 16px; border-radius:999px;
-  font-weight:950; cursor:pointer;
+/* =========================
+   组件：评论卡片 (信纸风格)
+========================= */
+.panel {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 12px rgba(107, 140, 133, 0.05);
 }
-.btn--accent:disabled{ opacity:.5; cursor:not-allowed; }
 
-.like-pill{
-  display:flex; align-items:center; gap:4px;
-  border:1px solid rgba(0,0,0,.08);
-  background: rgba(255,255,255,.6);
-  padding:4px 8px; border-radius:999px;
-  font-size:12px; font-weight:850;
-  cursor:pointer;
+.comment-card {
+  padding: 14px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  transition: transform 0.2s;
 }
-.like-pill:hover{ background:#fff; }
-.heart{ width:14px; height:14px; }
-.count{ opacity:.6; font-family:monospace; }
+.comment-card:hover {
+  background: rgba(255, 255, 255, 0.8);
+  transform: translateX(2px); /* 悬停微动 */
+}
+
+/* =========================
+   组件：输入框 (羊皮纸书写区)
+========================= */
+.input-panel {
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(244, 246, 249, 0.5);
+  border: 1px dashed rgba(107, 140, 133, 0.3); /* 虚线边框 */
+}
+
+.search {
+  display: flex; align-items: center;
+  background: rgba(255, 255, 255, 0.7);
+  border-bottom: 1px solid rgba(107, 140, 133, 0.3); /* 只有下划线 */
+  border-radius: 4px 4px 0 0;
+  padding: 0 8px;
+  height: 40px;
+  transition: all 0.2s;
+}
+.input-row { border: none; border-bottom: 1px solid rgba(107, 140, 133, 0.2); }
+.input-row:focus-within {
+  background: #fff;
+  border-bottom-color: var(--flower-purple);
+}
+
+.search .hint {
+  font-size: 12px; color: var(--accent); opacity: 0.6; margin-right: 8px;
+  font-family: sans-serif;
+}
+.search input, .search textarea {
+  border: none; background: transparent; outline: none;
+  flex: 1; font-size: 14px; color: var(--text-deep);
+  font-family: "Georgia", serif;
+}
+.search textarea::placeholder, .search input::placeholder {
+  color: var(--text-main); opacity: 0.4; font-style: italic;
+}
+
+/* =========================
+   按钮：魔法石风格
+========================= */
+.btn--accent {
+  background: linear-gradient(135deg, var(--text-main), var(--text-deep));
+  color: #fff;
+  border: 0; padding: 6px 20px; border-radius: 999px;
+  font-size: 13px; cursor: pointer;
+  box-shadow: 0 4px 10px rgba(67, 77, 88, 0.2);
+  transition: all 0.3s;
+  letter-spacing: 1px;
+}
+.btn--accent:hover {
+  background: linear-gradient(135deg, var(--flower-purple), #9b80b9);
+  box-shadow: 0 6px 14px rgba(155, 128, 185, 0.3);
+  transform: translateY(-1px);
+}
+.btn--accent:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* 点赞胶囊：柔光 */
+.like-pill {
+  display: flex; align-items: center; gap: 6px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.5);
+  padding: 4px 10px; border-radius: 999px;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.like-pill:hover {
+  background: #fff;
+  color: var(--flower-purple);
+  box-shadow: 0 2px 8px rgba(191, 162, 219, 0.2);
+}
+.heart { width: 14px; height: 14px; color: currentColor; }
 </style>

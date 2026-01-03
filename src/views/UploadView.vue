@@ -1,14 +1,17 @@
 <template>
   <section class="container-card">
     <div class="head">
-      <div class="h1">投稿上传</div>
-      <div class="sub">提交后进入待审核。标签不用输入#；展示时自动加#并可点击搜索。</div>
+      <div class="head-content">
+        <div class="h1">投稿上传</div>
+        <div class="sub">提交后进入待审核状态，后台审核辛苦啦～</div>
+      </div>
+
+      <div class="head-image">
+        <img src="/006.png" alt="Decoration" />
+      </div>
     </div>
 
-    <div class="hr"></div>
-
     <form class="form" @submit.prevent="submit">
-      <!-- 分区 1：基础信息 -->
       <div class="block">
         <div class="btitle">基础信息</div>
 
@@ -16,7 +19,7 @@
           <div class="field">
             <div class="label">上传者显示名（可选）</div>
             <input class="input" v-model="uploaderName" placeholder="例如：昵称 / 匿名" />
-            <div class="hint">仅用于展示，不用于身份识别。</div>
+            <div class="hint">仅用于展示。</div>
           </div>
 
           <div class="field">
@@ -31,7 +34,6 @@
         </div>
       </div>
 
-      <!-- 分区 2：分类与署名 -->
       <div class="block">
         <div class="btitle">分类与署名</div>
 
@@ -42,7 +44,7 @@
               <button type="button" :class="['segbtn', sourceType==='personal' && 'on']" @click="sourceType='personal'" data-sfx="click">个人作品</button>
               <button type="button" :class="['segbtn', sourceType==='network' && 'on']" @click="sourceType='network'" data-sfx="click">网络图片</button>
             </div>
-            <div class="hint">选择“个人作品”后必须填写唯一ID，并可选择授权许可（可多选）。</div>
+            <div class="hint"></div>
           </div>
 
           <div class="field">
@@ -51,7 +53,7 @@
               <button type="button" :class="['segbtn', contentType==='haruhi' && 'on']" @click="contentType='haruhi'" data-sfx="click">凉宫内容</button>
               <button type="button" :class="['segbtn', contentType==='other' && 'on']" @click="contentType='other'" data-sfx="click">非凉宫内容</button>
             </div>
-            <div class="hint">默认凉宫内容，可切换。</div>
+            <div class="hint"></div>
           </div>
         </div>
 
@@ -70,7 +72,7 @@
           </div>
 
           <div class="hint">
-            署名规则：只有当你的个人作品审核通过，你的作品卡片上才会显示署名（唯一ID+头像），并可被点击进入作者页。
+            加入创作者名单才能获取唯一ID，并允许上传个人作品哦！可联系春日酱或绘画部运营成为创作者🥰～
           </div>
         </div>
 
@@ -80,13 +82,12 @@
         </div>
       </div>
 
-      <!-- 分区 3：标签与授权 -->
       <div class="block">
         <div class="btitle">标签与授权</div>
 
         <div class="grid2">
           <div class="field">
-            <div class="label">标签（可选，不需要#）</div>
+            <div class="label">标签（可选）</div>
 
             <div class="tagRow">
               <input
@@ -106,23 +107,33 @@
               </span>
             </div>
 
-            <div class="hint">标签会参与搜索；发布后也可点击标签快速筛选。</div>
+            <div class="hint">标签会参与搜索,也可点击标签进行快速筛选。</div>
           </div>
 
           <div class="field" v-if="sourceType==='personal'">
-            <div class="label">授权许可（可多选）</div>
+            
+            <div class="label">对大众/网络的授权许可（可多选）</div>
             <div class="licenseBox">
-              <label class="licItem" v-for="opt in LICENSE_OPTIONS" :key="opt">
-                <input type="checkbox" :value="opt" v-model="licenses" />
+              <label class="licItem" v-for="opt in NET_LICENSE_OPTIONS" :key="opt">
+                <input type="checkbox" :value="opt" v-model="netLicenses" />
                 <span class="licText">{{ opt }}</span>
               </label>
             </div>
-            <div class="hint">不勾选表示默认不授权。授权内容会显示在作品详情弹窗里。</div>
+            <div class="hint" style="margin-bottom: 12px;">这些授权信息将公开显示在图片详情页。</div>
+
+            <div class="label">对应援团的特别授权（可多选）</div>
+            <div class="licenseBox">
+              <label class="licItem" v-for="opt in GROUP_LICENSE_OPTIONS" :key="opt">
+                <input type="checkbox" :value="opt" v-model="groupLicenses" />
+                <span class="licText">{{ opt }}</span>
+              </label>
+            </div>
+            <div class="hint">这些信息仅在后台可见，用于社团内部企划或周边制作参考。</div>
+
           </div>
         </div>
       </div>
 
-      <!-- 分区 4：文件 -->
       <div class="block">
         <div class="btitle">图片文件</div>
 
@@ -145,15 +156,23 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { api } from '../services/api' // 使用新的 api 模块
+import { api } from '../services/api' 
 
-const LICENSE_OPTIONS = [
+// --- 常量定义 ---
+const NET_LICENSE_OPTIONS = [
   '可在b站、小红书等社交媒体转载',
-  '可在视频或游戏等企划中使用',
-  '可制作无料等周边',
-  '可制作贩售周边'
+  '允许用于视频和游戏制作',
+  '允许用于制作无料（免费）发放'
 ]
 
+const GROUP_LICENSE_OPTIONS = [
+  '允许应援团社交媒体官方账号转载',
+  '允许用于应援团官方视频/游戏企划',
+  '允许制作无料（免费）周边发放',
+  '允许制作贩售（商业）周边'
+]
+
+// --- 状态定义 ---
 const uploaderName = ref('')
 const title = ref('')
 const description = ref('')
@@ -172,13 +191,16 @@ const uidAvatar = ref('')
 const uidExists = ref(false)
 const checkingUid = ref(false)
 
-const licenses = ref([])
+// 授权状态拆分
+const netLicenses = ref([])
+const groupLicenses = ref([])
 
 const msg = ref('')
 const submitting = ref(false)
 
 const uidHintClass = computed(() => uidHint.value.includes('✅') ? 'ok' : (uidHint.value.includes('❌') ? 'bad' : ''))
 
+// --- 方法 ---
 function onFile(e){
   const f = e.target.files && e.target.files[0]
   file.value = f || null
@@ -234,7 +256,8 @@ watch(sourceType, (v) => {
     uidHint.value = ''
     uidAvatar.value = ''
     uidExists.value = false
-    licenses.value = []
+    netLicenses.value = []
+    groupLicenses.value = []
   }
 })
 
@@ -272,12 +295,18 @@ async function submit(){
 
     if(sourceType.value === 'personal'){
       fd.append('uploader_uid', uid.value.trim())
-      fd.append('licenses', JSON.stringify(licenses.value))
+      
+      // 合并两个数组，并添加前缀以便区分
+      const combinedLicenses = [
+        ...netLicenses.value.map(x => `NET:${x}`),
+        ...groupLicenses.value.map(x => `GROUP:${x}`)
+      ]
+      fd.append('licenses', JSON.stringify(combinedLicenses))
     }
 
     const r = await api.uploadArtwork(fd)
     msg.value = r.pointsWillBeAddedAfterApprove
-      ? '提交成功 ✅（若审核通过，将自动记 20 积分）'
+      ? '提交成功 ✅（若审核通过，将自动记 15 积分）'
       : '提交成功 ✅（待管理员审核）'
 
     // reset form
@@ -286,6 +315,8 @@ async function submit(){
     originUrl.value = ''
     file.value = null
     clearTags()
+    netLicenses.value = []
+    groupLicenses.value = []
   }catch(e){
     msg.value = `提交失败：${e.message}`
   }finally{
@@ -295,123 +326,231 @@ async function submit(){
 </script>
 
 <style scoped>
-.head{ display:grid; gap:6px; }
-.h1{ font-size:20px; font-weight:950; letter-spacing:.4px; }
-.sub{ opacity:.72; }
-
-.form{ display:grid; gap:14px; }
-
-.block{
-  padding:14px;
-  border-radius:18px;
-  border:1px solid rgba(0,0,0,.10);
-  background: rgba(255,255,255,.72);
-  box-shadow: 0 18px 44px rgba(0,0,0,.06);
-  display:grid;
-  gap:12px;
+/* 头部布局改为 Flex，并增加相对定位，为图片的绝对定位做基准 */
+.head { 
+  display: flex; 
+  align-items: flex-end; 
+  justify-content: space-between;
+  gap: 20px; 
+  margin-bottom: 24px;
+  position: relative; /* 关键修改 1: 让内部的绝对定位图片以此为基准 */
 }
 
-.btitle{
+.head-content {
+  flex: 1; 
+  display: grid; 
+  gap: 6px;
+  /* 确保文字在图片之上 (如果有重叠需求) */
+  z-index: 2; 
+}
+
+.h1 { font-size: 36px; font-weight: 950; letter-spacing: .4px; }
+.sub { opacity: .72; }
+
+/* 头部图片样式修复 */
+.head-image img {
+  position: absolute;
+  /* 关键修改 2: 移除巨大的 1570px，改为相对于 .head 底部定位 */
+  right: 850px; /* 距离右侧的距离，可微调 */
+  bottom: -25px; /* 贴着 head 底部，或者给负值让它稍微突出去 */
+  height: 220px; /* 保持你想要的高度 */
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+  z-index: 1; /* 图片层级 */
+  
+  /* 如果觉得图片位置需要微调，可以使用 transform */
+  /* transform: translateY(10px); */
+}
+
+/* 整体大容器 */
+.form {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,0.6);
+  background: rgba(255, 255, 255, 0.6); 
+  box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+/* 背景图层修复 */
+.form::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  /* --- 👇 请替换背景图链接 👇 --- */
+  background-image: url('122.jpg');
+  /* -------------------------- */
+  
+  background-position: center;
+  background-repeat: no-repeat;
+  
+  /* 关键修改 3: 改为 100% auto (锁定宽度)，防止高度变化导致背景重绘跳动 */
+  background-size: 122% auto; 
+  
+  filter: blur(0px) saturate(1.2); 
+  transform: scale(1); 
+  opacity: 1;
+}
+
+/* 分区透明化 */
+.block {
+  padding: 24px 32px;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  display: grid;
+  gap: 16px;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+
+.block:last-child {
+  border-bottom: none;
+}
+
+.btitle {
+  font-size: 32px;
   font-weight: 950;
   letter-spacing: .2px;
   opacity: .90;
+  margin-bottom: 8px;
 }
 
-.grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+.grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:20px; }
 @media (max-width: 820px){ .grid2{ grid-template-columns: 1fr; } }
 
 .field{ display:grid; gap:8px; }
-.label{ font-weight:950; font-size:12px; opacity:.78; letter-spacing:.3px; }
+.label{ font-weight:950; font-size:20px; opacity:.85; letter-spacing:.3px; }
 
+/* 输入框高度透明化 */
 .input, .textarea{
   width:100%;
-  padding:10px 12px;
-  border-radius:14px;
-  border:1px solid rgba(0,0,0,.12);
-  background: rgba(255,255,255,.85);
+  padding:12px 14px;
+  border-radius:12px;
+  border:1px solid rgba(0,0,0,.1); 
+  background: rgba(255,255,255,0.35); /* 高度透明 */
   font-weight: 850;
   outline:none;
+  transition: all 0.2s;
+  backdrop-filter: blur(2px);
 }
 .input:focus, .textarea:focus{
-  border-color: rgba(20,184,166,.55);
-  box-shadow: 0 0 0 4px rgba(20,184,166,.14);
+  border-color: rgba(20,184,166,.6);
+  background: rgba(255,255,255,0.4); 
+  box-shadow: 0 0 0 4px rgba(20,184,166,.15);
 }
-.textarea{ min-height: 110px; resize: vertical; }
+.textarea{ min-height: 120px; resize: vertical; }
 
-.hint{ font-size:12px; opacity:.65; line-height:1.5; }
-.hint.ok{ opacity:1; color: rgba(16,120,70,.95); font-weight:900; }
-.hint.bad{ opacity:1; color: rgba(180,40,40,.95); font-weight:900; }
+.hint{ font-size:18px; opacity:.7; line-height:1.5; font-weight: 600; }
+.hint.ok{ opacity:1; color: rgba(16,120,70,1); }
+.hint.bad{ opacity:1; color: rgba(200,40,40,1); }
 
 .inline{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
 .inline .input{ flex:1; min-width: 240px; }
 
-.creatorRow{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-.creatorAvatar{ width:34px; height:34px; border-radius:50%; object-fit:cover; border:1px solid rgba(0,0,0,.12); }
+.creatorRow{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top: 4px; }
+.creatorAvatar{ width:40px; height:40px; border-radius:50%; object-fit:cover; border:2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
 
 .seg{ display:flex; gap:8px; flex-wrap:wrap; }
+
+/* 单选按钮透明化 */
 .segbtn{
-  border:1px solid rgba(0,0,0,.12);
-  background: rgba(255,255,255,.80);
-  padding:9px 12px;
+  border:1px solid rgba(0,0,0,.1);
+  background: rgba(255,255,255,.15); /* 透明 */
+  padding:9px 16px;
   border-radius:999px;
   cursor:pointer;
   font-weight:950;
   opacity:.86;
-  transition: transform .12s ease, background .12s ease, opacity .12s ease;
+  transition: all .2s ease;
+  backdrop-filter: blur(2px);
 }
-.segbtn:hover{ opacity:1; }
-.segbtn:active{ transform: scale(1.06); }
+.segbtn:hover{ opacity:1; transform: translateY(-1px); background: rgba(255,255,255,.3); }
+.segbtn:active{ transform: translateY(0) scale(0.98); }
 .segbtn.on{
-  background: rgba(0,0,0,.88);
+  background: #1f2937;
   color:#fff;
-  border-color: rgba(0,0,0,.88);
+  border-color: #1f2937;
   opacity:1;
-  animation: pop .18s ease-out;
-}
-@keyframes pop{
-  0%{ transform: scale(1); }
-  60%{ transform: scale(1.08); }
-  100%{ transform: scale(1); }
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
-.file{ padding:8px 10px; }
+/* 文件选择框透明化 */
+.file{ padding:10px; background: rgba(255,255,255,0.35); backdrop-filter: blur(2px); }
 
-.actions{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-.msg{ opacity:.78; font-weight:850; }
+.actions{ display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-top: 10px; }
+.msg{ opacity:.9; font-weight:850; color: #059669; }
 
 .tagRow{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
 .tagRow .input{ flex:1; min-width: 240px; }
 
-.tagList{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.tagList{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top: 6px; }
+
+/* 标签 Chip 透明化 */
 .tagChip{
   display:inline-flex;
   align-items:center;
-  gap:8px;
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid rgba(0,0,0,.12);
-  background: rgba(255,255,255,.78);
-  font-size:12px;
+  gap:6px;
+  padding:6px 12px;
+  border-radius:8px;
+  border:1px solid rgba(0,0,0,.1);
+  background: rgba(255,255,255,0.25); /* 透明 */
+  font-size:18px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+  backdrop-filter: blur(2px);
 }
-.tagChip .t{ font-weight:950; color: rgba(25,110,255,.95); }
+.tagChip .t{ font-weight:950; color: #2563eb; }
 .tagChip .x{
   border:0;
   background: transparent;
   cursor:pointer;
   font-weight:950;
-  opacity:.75;
+  color: #999;
+  padding: 0 4px;
 }
-.tagChip .x:hover{ opacity:1; }
+.tagChip .x:hover{ color: #d32f2f; }
 
+/* 授权框透明化 */
 .licenseBox{
   display:grid;
-  gap:10px;
-  padding: 12px;
+  gap:12px;
+  padding: 16px;
   border-radius: 16px;
   border: 1px solid rgba(0,0,0,.10);
-  background: rgba(255,255,255,.82);
+  background: rgba(255,255,255,.15); /* 透明 */
+  backdrop-filter: blur(2px);
 }
 .licItem{ display:flex; gap:10px; align-items:flex-start; cursor:pointer; user-select:none; }
-.licItem input{ margin-top: 2px; }
-.licText{ font-weight: 850; opacity: .86; line-height: 1.5; }
+.licItem input{ margin-top: 3px; accent-color: #1f2937; }
+.licText{ font-weight: 850; opacity: .9; line-height: 1.4; font-size: 16px; }
+
+.btn, .btn-ghost {
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-weight: 950;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn {
+  background: #1f2937;
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.25); background: #000; }
+.btn:active:not(:disabled) { transform: translateY(0); }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; background: #9ca3af; }
+
+.btn-ghost {
+  background: rgba(255,255,255,0.35); /* 透明按钮 */
+  border: 1px solid rgba(0,0,0,0.1);
+  color: #374151;
+  backdrop-filter: blur(2px);
+}
+.btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.4); border-color: rgba(0,0,0,0.3); }
 </style>

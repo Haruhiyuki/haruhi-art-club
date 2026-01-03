@@ -84,7 +84,6 @@ export const api = {
 
   // ===== 互动 (点赞/评论) =====
   async likeArtwork(artworkId){
-    // 增加空 body {} 以确保 Content-Type 被设置为 application/json
     return await request('POST', `/api/likes/artwork/${encodeURIComponent(artworkId)}`, { body: {} })
   },
   async likeComment(commentId){
@@ -100,6 +99,10 @@ export const api = {
   // ===== 管理后台 =====
   async adminPendingArtworks(){
     return await request('GET', '/api/admin/pending-artworks')
+  },
+  // ✅ 新增：获取审核记录 (历史归档)
+  async adminAuditHistory(){
+    return await request('GET', '/api/admin/audit-history')
   },
   async adminPointsLedger(){
     return await request('GET', '/api/admin/points-ledger')

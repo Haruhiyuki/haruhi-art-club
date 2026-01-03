@@ -21,6 +21,6 @@ defineEmits(['click'])
   border-radius:999px;
 }
 .tag:hover{
-  background: rgba(25,110,255,.10);
+  background: rgba(109, 126, 155, 0.939);
 }
 </style>
