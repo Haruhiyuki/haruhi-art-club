@@ -326,44 +326,39 @@ async function submit(){
 </script>
 
 <style scoped>
-/* 头部布局改为 Flex，并增加相对定位，为图片的绝对定位做基准 */
+/* --- 头部布局 --- */
 .head { 
   display: flex; 
   align-items: flex-end; 
   justify-content: space-between;
   gap: 20px; 
   margin-bottom: 24px;
-  position: relative; /* 关键修改 1: 让内部的绝对定位图片以此为基准 */
+  position: relative; /* 关键：作为绝对定位图片的基准 */
 }
 
 .head-content {
   flex: 1; 
   display: grid; 
   gap: 6px;
-  /* 确保文字在图片之上 (如果有重叠需求) */
-  z-index: 2; 
+  z-index: 2; /* 文字在图片之上 */
 }
 
 .h1 { font-size: 36px; font-weight: 950; letter-spacing: .4px; }
 .sub { opacity: .72; }
 
-/* 头部图片样式修复 */
+/* 头部装饰图 (电脑端样式) */
 .head-image img {
   position: absolute;
-  /* 关键修改 2: 移除巨大的 1570px，改为相对于 .head 底部定位 */
-  right: 850px; /* 距离右侧的距离，可微调 */
-  bottom: -25px; /* 贴着 head 底部，或者给负值让它稍微突出去 */
-  height: 220px; /* 保持你想要的高度 */
+  right: 0;        /* 靠右 */
+  bottom: -20px;   /* 底部对齐，可微调 */
+  height: 220px;   /* 保持原始大小 */
   width: auto;
   object-fit: contain;
   filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
-  z-index: 1; /* 图片层级 */
-  
-  /* 如果觉得图片位置需要微调，可以使用 transform */
-  /* transform: translateY(10px); */
+  z-index: 1; 
 }
 
-/* 整体大容器 */
+/* --- 表单容器 --- */
 .form {
   position: relative;
   overflow: hidden;
@@ -375,20 +370,18 @@ async function submit(){
   flex-direction: column;
 }
 
-/* 背景图层修复 */
+/* --- 背景图 (电脑端默认) --- */
 .form::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
-  /* --- 👇 请替换背景图链接 👇 --- */
+  /* 恢复背景图片 */
   background-image: url('122.jpg');
-  /* -------------------------- */
-  
   background-position: center;
   background-repeat: no-repeat;
   
-  /* 关键修改 3: 改为 100% auto (锁定宽度)，防止高度变化导致背景重绘跳动 */
+  /* 关键修复：锁定宽度 100%，高度自动。防止表单变长时背景重绘跳动 */
   background-size: 122% auto; 
   
   filter: blur(0px) saturate(1.2); 
@@ -553,4 +546,43 @@ async function submit(){
   backdrop-filter: blur(2px);
 }
 .btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.4); border-color: rgba(0,0,0,0.3); }
+
+/* =======================================================
+   移动端优化 (仅针对宽度 <= 768px 的设备)
+   ======================================================= */
+@media (max-width: 768px) {
+  /* 1. 隐藏表单背景图，改用半透明白底 */
+  .form::before {
+    background-image: none !important; /* 强制覆盖 */
+    background-color: rgba(255, 255, 255, 0.85); /* 半透明白 */
+  }
+
+  /* 2. 隐藏头部装饰图，节省空间 */
+  .head-image {
+    display: none;
+  }
+
+  /* 3. 头部标题布局调整 */
+  .head {
+    flex-direction: column; /* 上下排列 */
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .h1 { font-size: 28px; } /* 缩小标题 */
+  .sub { font-size: 14px; }
+
+  /* 4. 减小表单内边距 */
+  .block {
+    padding: 20px 16px; 
+    gap: 12px;
+  }
+  
+  /* 5. 调整字号，避免手机上过大 */
+  .btitle { font-size: 24px; }
+  .label { font-size: 16px; }
+  .hint { font-size: 14px; }
+  .licText { font-size: 14px; }
+  .tagChip { font-size: 14px; padding: 4px 10px; }
+}
 </style>

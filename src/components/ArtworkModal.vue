@@ -90,18 +90,18 @@
           <div class="sep"></div>
 
           <div class="panel input-panel">
-            <div class="small-muted" style="font-weight: 950; margin-bottom:8px; color:var(--accent);">留下一段故事</div>
+            <div class="small-muted" style="font-weight: 950; margin-bottom:8px; color:var(--accent);">讲两句？</div>
 
             <div class="search input-row" style="margin-bottom:10px;">
               <span class="hint">署名</span>
-              <input v-model="commentName" placeholder="幻影之名" />
+              <input v-model="commentName" placeholder="留下你的大名吧！" />
             </div>
 
             <div class="search input-row" style="height:auto; padding: 10px 12px;">
               <textarea
                 v-model="commentBody"
                 rows="3"
-                placeholder="在此刻低语…"
+                placeholder="说点什么好呢..."
                 style="width:100%; border:none; outline:none; background:transparent; resize: vertical; font-weight:500;"
               ></textarea>
             </div>

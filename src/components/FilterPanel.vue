@@ -151,16 +151,18 @@ const emit = defineEmits([
   overflow: visible; 
 }
 
-/* 装饰图片样式 */
+/* 装饰图片样式 (默认电脑端) */
 .mascot-img {
   position: absolute;
-  bottom: 100%; 
-  right: 8px; 
+  bottom: 95%; 
+  right: 0px; 
   height: 120px; 
   pointer-events: none; 
   z-index: 10; 
   filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
   transform: rotate(0deg);
+  max-width: none; 
+  width: auto;
 }
 
 .content-track {
@@ -266,39 +268,98 @@ const emit = defineEmits([
   .filter-panel-3d { 
     align-items: stretch; 
     padding: 0 16px;
-    /* 增加顶部距离，为了让 120px 的图片能完整显示而不被顶部导航遮挡 */
     margin-top: 130px; 
   }
   
+  /* 修改重点：
+     1. flex-direction: row -> 让两组筛选栏水平排列
+     2. flex-wrap: nowrap -> 强制不换行
+     3. overflow-x: auto -> 如果屏幕实在太小，允许横向微滚动，防止布局崩坏
+  */
   .panel-group {
-    /* 垂直排列，并反转顺序：让“来源”栏(source-box) 排在 “内容”栏(content-box) 上方 */
-    flex-direction: column-reverse; 
-    align-items: stretch; /* 拉伸占满宽度 */
-    gap: 16px;
+    flex-direction: row; 
+    align-items: center;
+    gap: 12px; /* 两个筛选组之间的间距 */
+    justify-content: flex-start;
+    width: 100%;
+    flex-wrap: nowrap; 
+    /* overflow-x: auto;  按需开启，如果屏幕极窄 */
   }
 
+  /* 修改重点：
+     1. flex-direction: row -> 标签在左，轨道在右
+     2. gap -> 标签和轨道之间的距离
+  */
   .control-box {
-    justify-content: space-between; /* 标签和轨道分开 */
+    flex-direction: row;
+    align-items: center; 
+    gap: 6px;
+    flex-shrink: 0; /* 防止被挤压 */
   }
 
+  /* 标签样式调整 */
+  .c-label {
+    font-size: 17px; /* 字体适中，不至于太难看清 */
+    opacity: 0.8;
+    margin-bottom: 0; /* 既然在左边，就不需要底部边距了 */
+    white-space: nowrap; /* 防止换行 */
+  }
+
+  /* 轨道样式调整 */
   .toggle-track {
-    /* 在手机上让轨道稍微宽一点，方便点击 */
-    flex: 1;
-    margin-left: 10px;
+    width: auto; 
+    margin: 0;
+    padding: 3px; /* 稍微紧凑 */
   }
-  /* 重置具体宽度限制，让 flex 生效 */
-  .content-track, .source-track { width: auto; }
-
-  /* 针对搜索栏的调整 */
-  .search-wrapper { width: 100%; }
   
-  /* 隐藏 GO 按钮 */
+  /* 给轨道设定一个相对合理的最小宽度，保证点击面积 */
+  .content-track {
+    width: 90px; 
+  }
+  
+  .source-track {
+    width: 140px;
+  }
+
+  /* 按钮字体和点击区域 */
+  .toggle-item {
+    font-size: 20px; 
+    padding: 1px 0;
+  }
+
+  /* 滑块跟随调整 */
+  .slider-bg {
+    top: 3px;
+    bottom: 3px;
+  }
+  .content-track .slider-bg { width: calc(50% - 3px); left: 3px; }
+  .source-track .slider-bg { width: calc(33.333% - 3.5px); left: 3px; }
+
+  /* 修改重点：装饰图片位置
+     由于标签现在在左边，轨道上方是空的，图片可以完美放置
+  */
+  .mascot-img {
+    height: 100px; 
+    bottom: 90%; 
+    right: -10px; 
+  }
+
+  /* 搜索栏保持一行 */
+  .search-wrapper { 
+    width: 100%; 
+    flex-wrap: nowrap; 
+    margin-top: 8px;
+  }
+  
   .btn-primary { display: none; }
   
-  /* 让清空按钮填满剩下空间 (可选，或者只是正常显示) */
   .btn-ghost {
-    flex-grow: 0;
-    min-width: 60px;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  
+  .input-3d {
+    min-width: 0; 
   }
 }
 </style>

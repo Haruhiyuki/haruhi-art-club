@@ -23,8 +23,8 @@ function enterAdmin() {
     <div class="brand" role="button" tabindex="0" @click="router.push('/')" @keydown.enter="router.push('/')">
       <div class="brand__mark" aria-hidden="true"></div>
       <div class="brand__text">
-        <div class="brand__title">凉宫同好社 · 绘画部画廊</div>
-        <div class="brand__sub">Haruhi Art Gallery</div>
+        <div class="brand__title">应援团绘画部·画廊</div>
+        <div class="brand__sub">一起来体验分享的快乐吧！</div>
       </div>
     </div>
 
@@ -77,10 +77,10 @@ function enterAdmin() {
 }
 
 .brand__mark {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border-radius: 12px;
-  background-image: url('avatar.jpg');
+  background-image: url('892.jpg');
   background-size: cover;
   background-position: center;
   border: 1px solid rgba(255, 255, 255, 0.6);
@@ -172,7 +172,7 @@ function enterAdmin() {
 
   .navlink {
     padding: 6px 16px; /* 稍微缩小按钮尺寸 */
-    font-size: 13px;
+    font-size: 18px;
   }
 
   /* 手机端隐藏后台按钮 */
@@ -182,10 +182,10 @@ function enterAdmin() {
   
   /* 调整标题大小以适应小屏 */
   .brand__title {
-    font-size: 13px;
+    font-size: 17px;
   }
   .brand__sub {
-    font-size: 10px;
+    font-size: 12px;
   }
 }
 </style>
