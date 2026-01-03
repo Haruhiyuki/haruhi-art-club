@@ -140,14 +140,14 @@
         <div class="field">
           <div class="label">选择图片文件（必选）</div>
           <input class="input file" type="file" accept="image/*" @change="onFile" required />
-          <div class="hint">建议清晰原图；提交后AI将进行内容检测。</div>
+          <div class="hint">系统将自动压缩生成预览图用于网页展示，同时保留您上传的原图用于下载。</div>
         </div>
 
         <div class="actions">
           <button class="btn" :disabled="submitting || !file" data-sfx="click">
-            {{ submitting ? 'AI检测提交中…' : '提交' }}
+            {{ submitting ? statusMsg : '提交' }}
           </button>
-          <span class="msg">{{ msg }}</span>
+          <span class="msg" :class="{ error: isError }">{{ msg }}</span>
         </div>
       </div>
     </form>
@@ -157,6 +157,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { api } from '../services/api' 
+import { compressToWebP } from '../utils/imageCompressor.js'
 
 // --- 常量定义 ---
 const NET_LICENSE_OPTIONS = [
@@ -196,7 +197,9 @@ const netLicenses = ref([])
 const groupLicenses = ref([])
 
 const msg = ref('')
+const isError = ref(false)
 const submitting = ref(false)
+const statusMsg = ref('提交中…') // 用于按钮显示的细分状态
 
 const uidHintClass = computed(() => uidHint.value.includes('✅') ? 'ok' : (uidHint.value.includes('❌') ? 'bad' : ''))
 
@@ -263,28 +266,50 @@ watch(sourceType, (v) => {
 
 async function submit(){
   msg.value = ''
-  if(!file.value){ msg.value = '请选择图片文件'; return }
+  isError.value = false
+  
+  if(!file.value){ msg.value = '请选择图片文件'; isError.value = true; return }
   if(!title.value.trim() || !description.value.trim()){
-    msg.value = '作品名称与描述为必填'
+    msg.value = '作品名称与描述为必填'; isError.value = true;
     return
   }
 
   if(sourceType.value === 'personal'){
     const u = uid.value.trim()
-    if(!u){ msg.value = '个人作品必须填写唯一ID'; return }
+    if(!u){ msg.value = '个人作品必须填写唯一ID'; isError.value = true; return }
     if(!uidExists.value){
       await checkUid()
       if(!uidExists.value){
-        msg.value = '唯一ID不存在，无法提交个人作品'
+        msg.value = '唯一ID不存在，无法提交个人作品'; isError.value = true;
         return
       }
     }
   }
 
   submitting.value = true
+  statusMsg.value = '处理图片中…'
+
   try{
     const fd = new FormData()
-    fd.append('image', file.value)
+
+    // --- 核心修改：压缩逻辑 ---
+    let compressedBlob = null
+    try {
+      // 压缩到 WebP, 90% 质量, 最大宽 1920
+      // 这里的 file.value 是 File 对象 (也是一种 Blob)
+      compressedBlob = await compressToWebP(file.value, 0.9, 1920)
+    } catch (err) {
+      console.warn('图片压缩失败，将使用原图作为展示图:', err)
+      // 如果压缩失败，展示图回退到原图
+      compressedBlob = file.value
+    }
+
+    // append 'image': 展示用的图 (压缩后的 WebP)
+    fd.append('image', compressedBlob, 'display.webp')
+    // append 'original': 下载用的原图
+    fd.append('original', file.value)
+    // -----------------------
+
     fd.append('uploader_name', uploaderName.value.trim())
     fd.append('title', title.value.trim())
     fd.append('description', description.value.trim())
@@ -303,6 +328,7 @@ async function submit(){
       fd.append('licenses', JSON.stringify(combinedLicenses))
     }
 
+    statusMsg.value = '上传中…'
     const r = await api.uploadArtwork(fd)
     
     // 根据返回的状态显示不同的提示
@@ -321,13 +347,19 @@ async function submit(){
     description.value = ''
     originUrl.value = ''
     file.value = null
+    // Reset file input value manually to clear the UI selection
+    const fileInput = document.querySelector('.input.file')
+    if(fileInput) fileInput.value = ''
+    
     clearTags()
     netLicenses.value = []
     groupLicenses.value = []
   }catch(e){
     msg.value = `提交失败：${e.message}`
+    isError.value = true
   }finally{
     submitting.value = false
+    statusMsg.value = '提交'
   }
 }
 </script>
@@ -476,6 +508,7 @@ async function submit(){
 
 .actions{ display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-top: 10px; }
 .msg{ opacity:.9; font-weight:850; color: #059669; }
+.msg.error{ color: #d32f2f; }
 
 .tagRow{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
 .tagRow .input{ flex:1; min-width: 240px; }

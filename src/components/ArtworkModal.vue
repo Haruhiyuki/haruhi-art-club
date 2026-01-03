@@ -12,7 +12,25 @@
       <div class="modal__side">
         <div class="modal__head">
           <h2>{{ art?.title }}</h2>
-          <button class="icon-btn" type="button" @click="close" data-sfx="click">✕</button>
+          <div class="actions">
+            <!-- 下载按钮：绑定动态文件名 -->
+            <a 
+              v-if="originalUrl" 
+              :href="originalUrl" 
+              :download="downloadFilename"
+              class="icon-btn download-btn" 
+              title="下载原图"
+              data-sfx="click"
+              @click.stop
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+            </a>
+            <button class="icon-btn" type="button" @click="close" data-sfx="click">✕</button>
+          </div>
         </div>
 
         <div class="kv">
@@ -21,6 +39,9 @@
 
           <b>上传时间</b>
           <div>{{ art?.created_at ? new Date(art.created_at).toLocaleString() : '-' }}</div>
+          
+          <b>规格</b>
+          <div>{{ isWebP ? 'WebP (已压缩)' : 'Original' }}</div>
 
           <b>作品描述</b>
           <div class="small-muted">{{ art?.description || '（无）' }}</div>
@@ -144,12 +165,60 @@ const art = computed(() => props.item || props.artwork || null)
 const imgSrc = computed(() => {
   const a = art.value
   if(!a) return ''
+  // 优先显示压缩图，如果没有则显示原图
   return a.image_url || a.imageUrl || a.url || ''
 })
 
+const originalUrl = computed(() => {
+  const a = art.value
+  // 后端返回的 original_url，或者是 url
+  return a?.original_url || a?.originalUrl || a?.url || ''
+})
+
+// --- 新增：生成下载文件名 ---
+const downloadFilename = computed(() => {
+  const a = art.value
+  if(!a) return 'artwork.jpg'
+
+  // 1. 时间：格式化为 YYYYMMDD
+  let dateStr = '00000000'
+  if(a.created_at) {
+    const d = new Date(a.created_at)
+    const y = d.getFullYear()
+    const m = String(d.getMonth()+1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    dateStr = `${y}${m}${day}`
+  }
+
+  // 2. 作者：优先取名字，没有则取 UID，再没有则匿名
+  let author = (a.uploader_name || a.uploader_uid || '匿名').trim()
+  
+  // 3. 标题
+  let title = (a.title || '作品').trim()
+
+  // 净化文件名 (移除非法字符如 / \ : * ? " < > | )
+  const safe = (s) => String(s).replace(/[\\/:*?"<>|]/g, '_').trim()
+  
+  // 组合：时间-作者-标题
+  const baseName = `${dateStr}-${safe(author)}-${safe(title)}`
+
+  // 4. 后缀名 (从 url 提取)
+  let ext = 'jpg'
+  const url = originalUrl.value
+  if(url){
+    // 移除 query string
+    const cleanUrl = url.split(/[?#]/)[0]
+    const parts = cleanUrl.split('.')
+    if(parts.length > 1) ext = parts[parts.length - 1]
+  }
+
+  return `${baseName}.${ext}`
+})
+
+const isWebP = computed(() => imgSrc.value.toLowerCase().includes('.webp'))
+
 const tags = computed(() => Array.isArray(art.value?.tags) ? art.value.tags : [])
 
-// 修改：只筛选 NET: 开头的授权，并去掉前缀
 const publicLicenses = computed(() => {
   const all = Array.isArray(art.value?.licenses) ? art.value.licenses : []
   return all
@@ -200,16 +269,12 @@ async function postComment(){
 async function likeComment(c){
   try{
     await api.likeComment(c.id)
-    // 乐观更新
     c.like_total = Number(c.like_total || 0) + 1
-  }catch(e){
-    // 错误处理
-  }
+  }catch(e){ }
 }
 
 function clickTag(t){
   emit('tag', t)
-  // 关键修改：点击标签后自动关闭详情页
   close()
 }
 
@@ -229,23 +294,22 @@ onMounted(() => {
 
 <style scoped>
 /* =========================
-   主题变量定义：空灵、神秘、花园
+   主题变量定义
 ========================= */
 .garden-overlay {
-  --mist-bg: #f4f6f9; /* 晨雾白 */
-  --vine-green: #6b8c85; /* 灰绿藤蔓 */
-  --flower-purple: #bfa2db; /* 淡紫藤 */
-  --flower-pink: #f3d1dc; /* 浅花粉 */
-  --accent: #7a8b99; /* 强调色-青灰 */
+  --mist-bg: #f4f6f9; 
+  --vine-green: #6b8c85; 
+  --flower-purple: #bfa2db; 
+  --flower-pink: #f3d1dc; 
+  --accent: #7a8b99; 
   
-  --text-deep: #434d58; /* 深灰字 */
-  --text-main: #5d6d7e; /* 次深灰字 */
+  --text-deep: #434d58; 
+  --text-main: #5d6d7e; 
   
   --paper-texture: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
   
   position: fixed;
   inset: 0;
-  /* 背景：深邃的模糊，带一点点紫夜色 */
   background: rgba(20, 25, 35, 0.4);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -258,50 +322,30 @@ onMounted(() => {
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-/* =========================
-   模态框主体：神秘的书页/画框
-   【关键修改】类名从 .modal 改为 .garden-modal
-========================= */
 .garden-modal {
   width: 90vw;
   height: 85vh;
   max-width: 1100px;
   position: relative;
-  
-  /* 模拟稍微泛黄的厚纸张或羊皮纸 */
   background: linear-gradient(135deg, #fffcf9 0%, #f7f9fc 100%);
-  
-  /* 【关键修改】显式设置为 visible，允许藤蔓花朵溢出 */
   overflow: visible;
-
-  /* 边框：双层边框，模拟画框 */
   border: 4px double rgba(107, 140, 133, 0.2); 
   border-radius: 20px;
-  
-  /* 阴影：柔和的扩散光晕 */
   box-shadow: 
     0 20px 60px rgba(0, 0, 0, 0.15),
     0 0 0 1px rgba(255, 255, 255, 0.5) inset;
-    
   display: grid;
   grid-template-columns: 1fr 380px;
 }
 
-/* =========================
-   装饰元素：枝条与花朵
-========================= */
-/* 使用 mask 和 gradient 模拟藤蔓缠绕 */
 .garden-modal::before {
   content: "";
   position: absolute;
   inset: -6px;
   border-radius: 24px;
   border: 2px solid transparent;
-  /* 渐变边框，像藤蔓的颜色变化 */
   background: linear-gradient(45deg, var(--vine-green), transparent 40%, transparent 60%, var(--vine-green)) border-box; 
-  -webkit-mask: 
-    linear-gradient(#fff 0 0) padding-box, 
-    linear-gradient(#fff 0 0);
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   opacity: 0.5;
@@ -309,7 +353,6 @@ onMounted(() => {
   z-index: 10;
 }
 
-/* 左上角的花朵光晕 */
 .deco-flower {
   position: absolute;
   top: -20px;
@@ -323,7 +366,6 @@ onMounted(() => {
   pointer-events: none;
 }
 
-/* 右下角的枝叶光晕 */
 .deco-vine {
   position: absolute;
   bottom: -30px;
@@ -339,12 +381,9 @@ onMounted(() => {
 
 @media (max-width: 800px){
   .garden-modal{ grid-template-columns: 1fr; grid-template-rows: 40vh 1fr; height:90vh; }
-  .garden-modal::before { display: none; } /* 移动端简化边框 */
+  .garden-modal::before { display: none; }
 }
 
-/* =========================
-   左侧：图片展示区
-========================= */
 .modal__media {
   background: rgba(240, 242, 245, 0.5);
   display: flex;
@@ -355,7 +394,6 @@ onMounted(() => {
   border-radius: 16px 0 0 16px;
 }
 
-/* 给图片加一个内阴影，像嵌在画框里 */
 .modal__media::after {
   content: "";
   position: absolute;
@@ -369,37 +407,25 @@ onMounted(() => {
   height: 100%;
   object-fit: contain;
   display: block;
-  /* 微微的混合模式，让图片更融入背景 */
   mix-blend-mode: multiply; 
   filter: contrast(1.02);
 }
 
-/* =========================
-   右侧：信息卷轴
-========================= */
 .modal__side {
   display: flex; flex-direction: column;
-  background: rgba(255, 255, 255, 0.4); /* 极度通透 */
+  background: rgba(255, 255, 255, 0.4);
   backdrop-filter: blur(10px);
   padding: 24px;
   overflow-y: auto;
   border-left: 1px solid rgba(107, 140, 133, 0.1);
-  
-  /* 纸张纹理叠加 */
   background-image: var(--paper-texture);
-  
-  /* 字体设置：使用衬线体增加故事感 */
   font-family: "Georgia", "Songti SC", "SimSun", serif;
 }
 
-/* 自定义滚动条：细长的藤蔓 */
 .modal__side::-webkit-scrollbar { width: 4px; }
 .modal__side::-webkit-scrollbar-thumb { background: rgba(107, 140, 133, 0.3); border-radius: 4px; }
 .modal__side::-webkit-scrollbar-track { background: transparent; }
 
-/* =========================
-   排版与文字
-========================= */
 .modal__head {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 12px;
@@ -407,14 +433,18 @@ onMounted(() => {
 }
 .modal__head h2 {
   font-size: 22px;
-  font-weight: 600; /* 衬线体不需要太粗 */
+  font-weight: 600;
   color: var(--text-deep);
   line-height: 1.4;
   letter-spacing: 0.5px;
-  text-shadow: 0 2px 10px rgba(191, 162, 219, 0.2); /* 淡紫光晕 */
+  text-shadow: 0 2px 10px rgba(191, 162, 219, 0.2);
 }
 
-/* 关闭按钮：像一颗露珠 */
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
 .icon-btn {
   flex-shrink: 0;
   width: 32px; height: 32px;
@@ -433,7 +463,13 @@ onMounted(() => {
   border-color: var(--flower-pink);
 }
 
-/* 键值对信息 */
+/* 下载按钮特殊样式 */
+.download-btn:hover {
+  color: var(--flower-purple);
+  transform: translateY(-2px); /* 只有下载按钮向上浮动，不旋转 */
+  box-shadow: 0 4px 10px rgba(191, 162, 219, 0.3);
+}
+
 .kv {
   display: grid;
   grid-template-columns: 70px 1fr;
@@ -444,7 +480,7 @@ onMounted(() => {
 }
 .kv b {
   font-weight: 600;
-  color: var(--vine-green); /* 标签用藤蔓绿 */
+  color: var(--vine-green); 
   text-align: right;
   opacity: 0.8;
 }
@@ -455,20 +491,17 @@ onMounted(() => {
   line-height: 1.6;
 }
 
-/* =========================
-   组件：花瓣标签
-========================= */
 .tags { display: flex; flex-wrap: wrap; gap: 8px; }
 .tag-chip {
   border: 1px solid rgba(191, 162, 219, 0.3);
   background: linear-gradient(to bottom, rgba(255,255,255,0.8), rgba(243, 209, 220, 0.1));
   padding: 5px 12px;
-  border-radius: 12px 2px 12px 2px; /* 模拟花瓣形状 */
+  border-radius: 12px 2px 12px 2px;
   font-size: 12px;
   color: #7b6c88;
   cursor: pointer;
   transition: all 0.2s;
-  font-family: sans-serif; /* 标签还是用无衬线清晰点 */
+  font-family: sans-serif;
 }
 .tag-chip:hover {
   background: #fff;
@@ -477,7 +510,6 @@ onMounted(() => {
   transform: translateY(-1px);
 }
 
-/* 分割线：渐变消失 */
 .sep {
   height: 1px;
   background: linear-gradient(to right, transparent, rgba(107, 140, 133, 0.2), transparent);
@@ -489,12 +521,9 @@ onMounted(() => {
   padding-left: 18px;
   font-size: 13px; opacity: 0.8; line-height: 1.6;
   color: var(--text-deep);
-  list-style-type: square; /* 方形点 */
+  list-style-type: square;
 }
 
-/* =========================
-   组件：评论卡片 (信纸风格)
-========================= */
 .panel {
   background: rgba(255, 255, 255, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.6);
@@ -509,23 +538,20 @@ onMounted(() => {
 }
 .comment-card:hover {
   background: rgba(255, 255, 255, 0.8);
-  transform: translateX(2px); /* 悬停微动 */
+  transform: translateX(2px);
 }
 
-/* =========================
-   组件：输入框 (羊皮纸书写区)
-========================= */
 .input-panel {
   padding: 16px;
   border-radius: 16px;
   background: rgba(244, 246, 249, 0.5);
-  border: 1px dashed rgba(107, 140, 133, 0.3); /* 虚线边框 */
+  border: 1px dashed rgba(107, 140, 133, 0.3);
 }
 
 .search {
   display: flex; align-items: center;
   background: rgba(255, 255, 255, 0.7);
-  border-bottom: 1px solid rgba(107, 140, 133, 0.3); /* 只有下划线 */
+  border-bottom: 1px solid rgba(107, 140, 133, 0.3);
   border-radius: 4px 4px 0 0;
   padding: 0 8px;
   height: 40px;
@@ -550,9 +576,6 @@ onMounted(() => {
   color: var(--text-main); opacity: 0.4; font-style: italic;
 }
 
-/* =========================
-   按钮：魔法石风格
-========================= */
 .btn--accent {
   background: linear-gradient(135deg, var(--text-main), var(--text-deep));
   color: #fff;
@@ -569,7 +592,6 @@ onMounted(() => {
 }
 .btn--accent:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
 
-/* 点赞胶囊：柔光 */
 .like-pill {
   display: flex; align-items: center; gap: 6px;
   border: 1px solid transparent;

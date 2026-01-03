@@ -124,7 +124,10 @@ function mapArtworkRow(r) {
     review_note: r.review_note || '',
     status: r.status,
     like_total: Number(r.like_total || 0),
+    // 展示用的图 (WebP)
     image_url: r.file_path ? `/uploads/${r.file_path}` : '',
+    // 下载用的原图 (如果不存在 file_path_original 则回退到 file_path)
+    original_url: r.file_path_original ? `/uploads/${r.file_path_original}` : (r.file_path ? `/uploads/${r.file_path}` : ''),
     ai_reason: r.ai_reason || ''
   }
 }
@@ -150,7 +153,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 12 * 1024 * 1024 }
+  limits: { fileSize: 24 * 1024 * 1024 } // 稍微调大点限制，支持原图上传
 })
 
 // ... express app setup ...
@@ -194,7 +197,6 @@ app.use('/uploads', express.static(uploadsDir))
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 
-// 读取作品列表 (Updated logic)
 app.get('/api/artworks', async (req, res) => {
   const db = getDb()
   const status = String(req.query.status || 'approved')
@@ -202,7 +204,6 @@ app.get('/api/artworks', async (req, res) => {
   const source_type = String(req.query.source_type || 'all')
   const uploader_uid = String(req.query.uploader_uid || '').trim()
   
-  // 核心修复点: 获取 searchField 并处理 q
   const qRaw = String(req.query.q || '').trim()
   const searchField = String(req.query.searchField || 'all')
   const page = clampInt(req.query.page, 1, 9999, 1)
@@ -228,7 +229,6 @@ app.get('/api/artworks', async (req, res) => {
     params.push(uploader_uid)
   }
   
-  // 修复后的搜索逻辑
   if (qRaw) {
     const qLower = qRaw.toLowerCase()
     const like = `%${qLower.replace(/[%_]/g, '')}%`
@@ -237,16 +237,12 @@ app.get('/api/artworks', async (req, res) => {
       where += ` AND a.title LIKE ?`
       params.push(like)
     } else if (searchField === 'uid') {
-      // 搜作者：包括 UID 和 昵称
       where += ` AND (a.uploader_uid LIKE ? OR a.uploader_name LIKE ?)`
       params.push(like, like)
     } else if (searchField === 'tag') {
-      // 搜标签：取消了之前的 '% q %' 强制空格逻辑，改为宽松匹配
-      // 这样即便数据是 "tag1,tag2" 也能搜到 "tag1"
       where += ` AND a.tags_norm LIKE ?`
       params.push(like) 
     } else {
-      // 综合搜索 (All)：覆盖 标题、描述、标签、UID、作者名
       where += ` AND (
         a.title LIKE ? OR 
         a.description LIKE ? OR 
@@ -279,9 +275,27 @@ app.get('/api/artworks', async (req, res) => {
   })
 })
 
-app.post('/api/artworks', upload.single('image'), async (req, res) => {
+// 修改：支持两个文件上传
+const uploadFields = upload.fields([
+  { name: 'image', maxCount: 1 },     // 压缩后的 WebP
+  { name: 'original', maxCount: 1 }   // 原图
+])
+
+app.post('/api/artworks', uploadFields, async (req, res) => {
   const db = getDb()
-  if (!req.file) return res.status(400).json({ ok: false, message: '缺少图片文件' })
+  
+  // 提取文件：
+  const fileCompressed = req.files?.['image']?.[0]
+  const fileOriginal = req.files?.['original']?.[0]
+
+  if (!fileCompressed && !fileOriginal) {
+    return res.status(400).json({ ok: false, message: '缺少图片文件' })
+  }
+
+  // 逻辑：如果只有 image (旧客户端)，则都用 image
+  // 如果两个都有，image 是展示图，original 是原图
+  const displayFile = fileCompressed || fileOriginal
+  const originalFile = fileOriginal || fileCompressed
 
   const title = safeText(req.body?.title)
   const description = safeText(req.body?.description)
@@ -293,8 +307,9 @@ app.post('/api/artworks', upload.single('image'), async (req, res) => {
 
   if (!title || !description) return res.status(400).json({ ok: false, message: '作品名称与描述为必填' })
 
+  // 检查用展示图（压缩图）来做内容安全检测通常足够且更快
   const textCheck = await checkText(`${title}\n${description}`)
-  const imageCheck = await checkImage(req.file.path)
+  const imageCheck = await checkImage(displayFile.path)
 
   let finalStatus = 'approved'
   let aiReason = []
@@ -322,17 +337,21 @@ app.post('/api/artworks', upload.single('image'), async (req, res) => {
   const tags_norm = makeTagsNorm(tagsArr)
   const licensesArr = parseLicenses(req.body?.licenses)
   const licenses_json = JSON.stringify(licensesArr)
-  const rel = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/')
+  
   const created_at = new Date().toISOString()
   const review_note = aiReason.join('; ')
   const reviewed_at = finalStatus === 'approved' ? created_at : null
 
+  // 获取相对路径
+  const relDisplay = path.relative(uploadsDir, displayFile.path).replace(/\\/g, '/')
+  const relOriginal = path.relative(uploadsDir, originalFile.path).replace(/\\/g, '/')
+
   const result = await db.run(
     `INSERT INTO artworks
-      (title, description, uploader_name, uploader_uid, source_type, content_type, tags_json, tags_norm, origin_url, file_path, status, review_note, reviewed_at, created_at, licenses_json, ai_reason)
+      (title, description, uploader_name, uploader_uid, source_type, content_type, tags_json, tags_norm, origin_url, file_path, file_path_original, status, review_note, reviewed_at, created_at, licenses_json, ai_reason)
      VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [title, description, uploader_name || null, uploader_uid || null, source_type, content_type, tags_json, tags_norm, origin_url || null, rel, finalStatus, review_note, reviewed_at, created_at, licenses_json, review_note]
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [title, description, uploader_name || null, uploader_uid || null, source_type, content_type, tags_json, tags_norm, origin_url || null, relDisplay, relOriginal, finalStatus, review_note, reviewed_at, created_at, licenses_json, review_note]
   )
 
   let pointsAdded = false
@@ -522,10 +541,16 @@ app.post('/api/admin/artworks/:id/update', requireAdmin, async (req, res) => {
 app.delete('/api/admin/artworks/:id', requireAdmin, async (req, res) => {
   const db = getDb()
   const id = Number(req.params.id)
-  const row = await db.get(`SELECT file_path FROM artworks WHERE id=?`, [id])
-  if (row && row.file_path) {
-    const fullPath = path.join(uploadsDir, row.file_path)
-    if (fs.existsSync(fullPath)) { try { fs.unlinkSync(fullPath) } catch (e) { console.error('Delete file error', e) } }
+  const row = await db.get(`SELECT file_path, file_path_original FROM artworks WHERE id=?`, [id])
+  if (row) {
+    if (row.file_path) {
+      const p = path.join(uploadsDir, row.file_path)
+      if (fs.existsSync(p)) try { fs.unlinkSync(p) } catch {}
+    }
+    if (row.file_path_original && row.file_path_original !== row.file_path) {
+      const p = path.join(uploadsDir, row.file_path_original)
+      if (fs.existsSync(p)) try { fs.unlinkSync(p) } catch {}
+    }
   }
   await db.run(`DELETE FROM artworks WHERE id=?`, [id])
   await db.run(`DELETE FROM comments WHERE artwork_id=?`, [id])

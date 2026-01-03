@@ -45,6 +45,7 @@ export async function initDb(dbPath){
       tags_norm TEXT,
       origin_url TEXT,
       file_path TEXT,
+      file_path_original TEXT, 
       status TEXT,
       review_note TEXT,
       reviewed_at TEXT,
@@ -96,7 +97,6 @@ export async function initDb(dbPath){
   `)
   await _db.exec(`CREATE INDEX IF NOT EXISTS idx_likes_target ON likes_daily(target_type, target_id, day);`)
 
-  // ✅ 会员表（你有 members/verify）
   await _db.exec(`
     CREATE TABLE IF NOT EXISTS members (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -106,10 +106,12 @@ export async function initDb(dbPath){
     );
   `)
 
-  // ✅ 自动补齐缺列（防止旧库缺字段）
+  // 自动补齐缺列
   await ensureColumn(_db, 'artworks', 'licenses_json', 'licenses_json TEXT')
   await ensureColumn(_db, 'artworks', 'like_total', 'like_total INTEGER DEFAULT 0')
   await ensureColumn(_db, 'artworks', 'reviewed_at', 'reviewed_at TEXT')
+  // 新增：原图路径字段
+  await ensureColumn(_db, 'artworks', 'file_path_original', 'file_path_original TEXT')
 
   await ensureColumn(_db, 'comments', 'anon_id', 'anon_id TEXT')
   await ensureColumn(_db, 'comments', 'like_total', 'like_total INTEGER DEFAULT 0')
