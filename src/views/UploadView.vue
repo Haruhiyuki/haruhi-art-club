@@ -7,7 +7,7 @@
       </div>
 
       <div class="head-image">
-        <img src="/src/assets/kon.webp" alt="Decoration" />
+        <img src="../assets/kon.webp" alt="Decoration" />
       </div>
     </div>
 

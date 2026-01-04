@@ -5,7 +5,7 @@ import fs from 'fs'
 import multer from 'multer'
 import { fileURLToPath } from 'url'
 import { initDb, getDb } from './db.js'
-import { checkText, checkImage } from './ai.js' 
+import { checkText, checkImage } from './ai.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -122,8 +122,8 @@ function mapArtworkRow(r) {
     review_note: r.review_note || '',
     status: r.status,
     like_total: Number(r.like_total || 0),
-    image_url: r.file_path ? `/uploads/${r.file_path}` : '',
-    original_url: r.file_path_original ? `/uploads/${r.file_path_original}` : (r.file_path ? `/uploads/${r.file_path}` : ''),
+    image_url: r.file_path ? `uploads/${r.file_path}` : '',
+    original_url: r.file_path_original ? `uploads/${r.file_path_original}` : (r.file_path ? `uploads/${r.file_path}` : ''),
     ai_reason: r.ai_reason || ''
   }
 }
@@ -135,7 +135,7 @@ fs.mkdirSync(uploadsDir, { recursive: true })
 const storage = multer.diskStorage({
   destination(req, file, cb) {
     const d = new Date()
-    const folder = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+    const folder = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
     const dir = path.join(uploadsDir, folder)
     fs.mkdirSync(dir, { recursive: true })
     cb(null, dir)
@@ -192,7 +192,7 @@ app.use((req, res, next) => {
   next()
 })
 
-app.use('/uploads', express.static(uploadsDir))
+app.use('/api/uploads', express.static(uploadsDir))
 
 // ... Routes ...
 
@@ -221,7 +221,7 @@ app.get('/api/points/leaderboard', async (req, res) => {
 app.get('/api/points/history', async (req, res) => {
   const db = getDb()
   const uid = String(req.query.uid || '').trim()
-  if(!uid) return res.json({ ok: false, message: 'Missing uid' })
+  if (!uid) return res.json({ ok: false, message: 'Missing uid' })
 
   const totalRow = await db.get(`SELECT SUM(points) as total FROM points_ledger WHERE uid=?`, [uid])
   const total = Number(totalRow?.total || 0)
@@ -244,15 +244,15 @@ app.get('/api/points/history', async (req, res) => {
 app.get('/api/creators/search', async (req, res) => {
   const db = getDb()
   const q = String(req.query.q || '').trim()
-  if(!q) return res.json({ ok: true, data: [] })
-  
+  if (!q) return res.json({ ok: true, data: [] })
+
   const like = `%${q}%`
   const rows = await db.all(`
     SELECT uid, avatar_url FROM creators 
     WHERE uid LIKE ? 
     LIMIT 8
   `, [like])
-  
+
   res.json({ ok: true, data: rows })
 })
 
@@ -263,7 +263,7 @@ app.get('/api/artworks', async (req, res) => {
   const content_type = String(req.query.content_type || 'all')
   const source_type = String(req.query.source_type || 'all')
   const uploader_uid = String(req.query.uploader_uid || '').trim()
-  
+
   const qRaw = String(req.query.q || '').trim()
   const searchField = String(req.query.searchField || 'all')
   const page = clampInt(req.query.page, 1, 9999, 1)
@@ -288,7 +288,7 @@ app.get('/api/artworks', async (req, res) => {
     where += ` AND a.uploader_uid=?`;
     params.push(uploader_uid)
   }
-  
+
   if (qRaw) {
     const qLower = qRaw.toLowerCase()
     const like = `%${qLower.replace(/[%_]/g, '')}%`
@@ -301,7 +301,7 @@ app.get('/api/artworks', async (req, res) => {
       params.push(like, like)
     } else if (searchField === 'tag') {
       where += ` AND a.tags_norm LIKE ?`
-      params.push(like) 
+      params.push(like)
     } else {
       where += ` AND (
         a.title LIKE ? OR 
@@ -337,7 +337,7 @@ app.get('/api/artworks', async (req, res) => {
 
 app.post('/api/artworks', uploadFields, async (req, res) => {
   const db = getDb()
-  
+
   const fileCompressed = req.files?.['image']?.[0]
   const fileOriginal = req.files?.['original']?.[0]
 
@@ -387,7 +387,7 @@ app.post('/api/artworks', uploadFields, async (req, res) => {
   const tags_norm = makeTagsNorm(tagsArr)
   const licensesArr = parseLicenses(req.body?.licenses)
   const licenses_json = JSON.stringify(licensesArr)
-  
+
   const created_at = new Date().toISOString()
   const review_note = aiReason.join('; ')
   const reviewed_at = finalStatus === 'approved' ? created_at : null
@@ -476,7 +476,7 @@ app.post('/api/comments', async (req, res) => {
     status = 'flagged'
     aiReason = check.reason
   } else if (check.reason === 'AI_API_ERROR' || check.reason === 'AI_OFFLINE') {
-    status = 'flagged' 
+    status = 'flagged'
     aiReason = 'AI服务不可用，转人工'
   }
 
@@ -536,7 +536,7 @@ function requireAdmin(req, res, next) {
   // 从环境变量获取密码，如果没有则阻止
   const expected = String(ADMIN_PASSWORD || '').trim()
   if (!expected) return res.status(500).json({ ok: false, message: 'Server configuration error' })
-  
+
   if ((req.header('x-admin-password') || '') !== expected) return res.status(401).json({ ok: false })
   next()
 }
@@ -545,9 +545,9 @@ function requireAdmin(req, res, next) {
 app.post('/api/admin/verify', (req, res) => {
   const input = String(req.body.password || '').trim()
   const expected = String(ADMIN_PASSWORD || '').trim()
-  
+
   if (!expected) return res.status(500).json({ ok: false, message: 'Server admin password not configured' })
-  
+
   if (input === expected) {
     res.json({ ok: true })
   } else {
@@ -625,11 +625,11 @@ app.delete('/api/admin/artworks/:id', requireAdmin, async (req, res) => {
   if (row) {
     if (row.file_path) {
       const p = path.join(uploadsDir, row.file_path)
-      if (fs.existsSync(p)) try { fs.unlinkSync(p) } catch {}
+      if (fs.existsSync(p)) try { fs.unlinkSync(p) } catch { }
     }
     if (row.file_path_original && row.file_path_original !== row.file_path) {
       const p = path.join(uploadsDir, row.file_path_original)
-      if (fs.existsSync(p)) try { fs.unlinkSync(p) } catch {}
+      if (fs.existsSync(p)) try { fs.unlinkSync(p) } catch { }
     }
   }
   await db.run(`DELETE FROM artworks WHERE id=?`, [id])

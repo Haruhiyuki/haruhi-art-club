@@ -7,7 +7,7 @@ import LicenseView from '../views/LicenseView.vue'
 import PointsView from '../views/PointsView.vue'
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', name: 'gallery', component: GalleryView },
     { path: '/upload', name: 'upload', component: UploadView },

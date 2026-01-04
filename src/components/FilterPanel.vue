@@ -37,7 +37,7 @@
         <div class="c-label">来源</div>
         <div class="toggle-track source-track">
           
-          <img src="/src/assets/lucky.webp" class="mascot-img" alt="decoration" />
+          <img src="../assets/lucky.webp" class="mascot-img" alt="decoration" />
 
           <div 
             class="slider-bg"
