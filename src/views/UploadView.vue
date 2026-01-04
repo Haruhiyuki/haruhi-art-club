@@ -1,161 +1,228 @@
 <template>
-  <section class="container-card">
-    <div class="head">
-      <div class="head-content">
-        <div class="h1">投稿上传</div>
-        <div class="sub">AI 审核护航，通过即发布～</div>
-      </div>
+  <div class="upload-page">
+    <section class="container-card">
+      <!-- 头部区域 -->
+      <header class="page-header">
+        <div class="header-text">
+          <h1 class="main-title">投稿上传</h1>
+        </div>
+        <div class="header-decoration">
+          <img src="../assets/kon.webp" alt="Decoration" class="deco-img" />
+        </div>
+      </header>
 
-      <div class="head-image">
-        <img src="../assets/kon.webp" alt="Decoration" />
-      </div>
-    </div>
-
-    <form class="form" @submit.prevent="submit">
-      <div class="block">
-        <div class="btitle">基础信息</div>
-
-        <div class="grid2">
-          <div class="field">
-            <div class="label">上传者显示名（可选）</div>
-            <input class="input" v-model="uploaderName" placeholder="例如：昵称 / 匿名" />
-            <div class="hint">仅用于展示。</div>
+      <!-- 表单主体 -->
+      <form class="main-form" @submit.prevent="submit">
+        
+        <!-- 区块 1: 基础信息 -->
+        <section class="form-section">
+          <div class="section-head">
+            <h2 class="section-title">基础信息</h2>
+            <span class="section-desc">填写作品的基本资料</span>
           </div>
 
-          <div class="field">
-            <div class="label">作品名称（必填）</div>
-            <input class="input" v-model="title" placeholder="请输入作品名称" required />
-          </div>
-        </div>
-
-        <div class="field">
-          <div class="label">作品描述（选填）</div>
-          <textarea class="textarea" v-model="description" placeholder="请描述作品内容、创作思路或来源说明…"></textarea>
-        </div>
-      </div>
-
-      <div class="block">
-        <div class="btitle">分类与署名</div>
-
-        <div class="grid2">
-          <div class="field">
-            <div class="label">图片来源（必选）</div>
-            <div class="seg">
-              <button type="button" :class="['segbtn', sourceType==='personal' && 'on']" @click="sourceType='personal'" data-sfx="click">个人作品</button>
-              <button type="button" :class="['segbtn', sourceType==='network' && 'on']" @click="sourceType='network'" data-sfx="click">网络图片</button>
+          <div class="form-grid">
+            <div class="form-group" style="grid-column: span 2;">
+              <label class="form-label">作品名称 <span class="req">*</span></label>
+              <input class="form-input" v-model="title" placeholder="请输入作品名称" required />
             </div>
-            <div class="hint"></div>
           </div>
 
-          <div class="field">
-            <div class="label">内容划分（必选）</div>
-            <div class="seg">
-              <button type="button" :class="['segbtn', contentType==='haruhi' && 'on']" @click="contentType='haruhi'" data-sfx="click">凉宫内容</button>
-              <button type="button" :class="['segbtn', contentType==='other' && 'on']" @click="contentType='other'" data-sfx="click">非凉宫内容</button>
+          <div class="form-group">
+            <label class="form-label">作品描述 <span class="opt">（选填）</span></label>
+            <textarea class="form-textarea" v-model="description" placeholder="请描述作品内容、创作思路或来源说明…"></textarea>
+          </div>
+        </section>
+
+        <!-- 区块 2: 分类与署名 -->
+        <section class="form-section">
+          <div class="section-head">
+            <h2 class="section-title">分类与署名</h2>
+            <span class="section-desc">确认作品来源与版权归属</span>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">图片来源 <span class="req">*</span></label>
+              <div class="segment-control">
+                <button type="button" :class="['segment-btn', sourceType==='personal' && 'active']" @click="sourceType='personal'" data-sfx="click">
+                  <span class="icon">🎨</span> 个人作品
+                </button>
+                <button type="button" :class="['segment-btn', sourceType==='network' && 'active']" @click="sourceType='network'" data-sfx="click">
+                  <span class="icon">🌐</span> 网络转载&其它
+                </button>
+              </div>
             </div>
-            <div class="hint"></div>
-          </div>
-        </div>
 
-        <div class="field" v-if="sourceType==='personal'">
-          <div class="label">创作者唯一ID（必填）</div>
-          <div class="inline">
-            <input class="input" v-model="uid" placeholder="请输入你的唯一ID（创作者名单中存在）" />
-            <button class="btn-ghost" type="button" @click="checkUid" :disabled="checkingUid || !uid.trim()" data-sfx="click">
-              {{ checkingUid ? '检测中…' : '检测' }}
+            <div class="form-group">
+              <label class="form-label">内容划分 <span class="req">*</span></label>
+              <div class="segment-control">
+                <button type="button" :class="['segment-btn', contentType==='haruhi' && 'active']" @click="contentType='haruhi'" data-sfx="click">
+                  凉宫内容
+                </button>
+                <button type="button" :class="['segment-btn', contentType==='other' && 'active']" @click="contentType='other'" data-sfx="click">
+                  非凉宫内容
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 个人作品专属逻辑 -->
+          <transition name="fade-slide">
+            <div v-if="sourceType==='personal'" class="conditional-block">
+              <div class="form-group">
+                <label class="form-label">创作者唯一ID <span class="req">*</span></label>
+                <div class="input-with-action">
+                  <input class="form-input" v-model="uid" placeholder="请输入你的唯一ID" />
+                  <button class="action-btn" type="button" @click="checkUid" :disabled="checkingUid || !uid.trim()" data-sfx="click">
+                    {{ checkingUid ? '检测中…' : '检测' }}
+                  </button>
+                </div>
+                
+                <!-- UID 状态反馈 -->
+                <div class="uid-feedback" v-if="uidHint">
+                  <div class="status-badge" :class="uidHintClass">
+                    {{ uidHint }}
+                  </div>
+                  <img v-if="uidAvatar" class="creator-avatar" :src="uidAvatar" alt="Avatar" />
+                </div>
+
+                <div class="info-card">
+                  <p>进行创作者注册才能获取唯一ID，并允许上传个人作品哦！</p>
+                  <p class="sub-info">可加入绘画部联系 <strong>律纪</strong> 或 <strong>阿笑</strong> 成为创作者🥰～<br>绘画部群号：627992968，阿笑QQ：2452812504，律纪QQ：3105285630</p>
+                </div>
+              </div>
+            </div>
+          </transition>
+
+          <!-- 网络图片专属逻辑 -->
+          <transition name="fade-slide">
+            <div v-if="sourceType==='network'" class="conditional-block">
+              <div class="form-group" style="margin-bottom: 24px;">
+                <label class="form-label">上传者显示名 <span class="opt">（可选）</span></label>
+                <input class="form-input" v-model="uploaderName" placeholder="例如：昵称 / 匿名" />
+                <p class="form-hint">仅用于展示，不填写则显示为默认名称。</p>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">网络图片来源链接 <span class="opt">（可选）</span></label>
+                <input class="form-input" v-model="originUrl" placeholder="https://..." />
+                <p class="form-hint warning">⚠️ 上传他人作品必须取得原作者授权并标注来源！</p>
+              </div>
+            </div>
+          </transition>
+        </section>
+
+        <!-- 区块 3: 标签与授权 -->
+        <section class="form-section">
+          <div class="section-head">
+            <h2 class="section-title">标签与授权</h2>
+          </div>
+
+          <div class="form-grid">
+            <!-- 修改：标签占满整行 (span 2) -->
+            <div class="form-group" style="grid-column: span 2;">
+              <label class="form-label">标签 <span class="opt">（可选）</span></label>
+              <div class="input-with-action">
+                <input
+                  class="form-input"
+                  v-model="tagDraft"
+                  placeholder="输入标签后按回车或点击添加"
+                  @keydown.enter.prevent="addTag"
+                />
+                <button class="action-btn secondary" type="button" @click="addTag" :disabled="!tagDraft.trim()" data-sfx="click">添加</button>
+              </div>
+              
+              <div class="tags-container" v-if="tags.length">
+                <transition-group name="list">
+                  <span class="tag-pill" v-for="t in tags" :key="t">
+                    <span class="tag-text">#{{ t }}</span>
+                    <button class="tag-remove" type="button" title="删除" @click="removeTag(t)" data-sfx="click">×</button>
+                  </span>
+                </transition-group>
+              </div>
+              <div class="tags-actions" v-if="tags.length">
+                 <button class="text-btn" type="button" @click="clearTags" data-sfx="click">清空所有标签</button>
+              </div>
+            </div>
+
+            <!-- 修改：授权选项区域占满整行，内部左右分列 -->
+            <transition name="fade-slide">
+              <div class="form-group" v-if="sourceType==='personal'" style="grid-column: span 2;">
+                <label class="form-label">授权许可设置</label>
+                
+                <div class="license-split-layout">
+                  <!-- 左列：大众授权 -->
+                  <div class="license-col">
+                    <div class="license-header">对大众/网络的授权</div>
+                    <p class="form-hint" style="margin-bottom: 12px;">这些授权信息将公开显示在图片详情页。</p>
+                    <div class="checkbox-list">
+                      <label class="checkbox-card" v-for="opt in NET_LICENSE_OPTIONS" :key="opt">
+                        <input type="checkbox" :value="opt" v-model="netLicenses" class="chk-input" />
+                        <span class="chk-custom"></span>
+                        <span class="chk-label">{{ opt }}</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- 右列：应援团授权 -->
+                  <div class="license-col">
+                    <div class="license-header">对应援团的特别授权 <span class="badge-private">后台可见</span></div>
+                    <p class="form-hint" style="margin-bottom: 12px;">这些信息仅在后台可见，用于社团内部企划或周边制作参考。</p>
+                    <div class="checkbox-list">
+                      <label class="checkbox-card" v-for="opt in GROUP_LICENSE_OPTIONS" :key="opt">
+                        <input type="checkbox" :value="opt" v-model="groupLicenses" class="chk-input" />
+                        <span class="chk-custom"></span>
+                        <span class="chk-label">{{ opt }}</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </transition>
+          </div>
+        </section>
+
+        <!-- 区块 4: 图片上传 -->
+        <section class="form-section upload-section">
+          <div class="section-head">
+            <h2 class="section-title">图片文件</h2>
+            <span class="section-desc">支持 JPG, PNG, WebP 格式</span>
+          </div>
+
+          <div class="file-upload-wrapper">
+             <div class="file-drop-area" :class="{ 'has-file': !!file }">
+                <input class="file-input-hidden" type="file" accept="image/*" @change="onFile" required id="fileUpload" />
+                <label for="fileUpload" class="file-drop-label">
+                   <div class="upload-icon" v-if="!file">📂</div>
+                   <div class="upload-text" v-if="!file">
+                     <strong>点击选择图片</strong>
+                   </div>
+                   <div class="file-info" v-else>
+                     <div class="file-icon">🖼️</div>
+                     <div class="file-name">{{ file.name }}</div>
+                     <div class="file-meta">{{ (file.size / 1024 / 1024).toFixed(2) }} MB</div>
+                     <div class="file-change-hint">点击更换</div>
+                   </div>
+                </label>
+             </div>
+             <p class="form-hint center">系统将自动压缩生成预览图，并保留原图用于下载。</p>
+          </div>
+
+          <div class="form-actions">
+            <div v-if="msg" class="message-box" :class="{ error: isError, success: !isError }">
+              {{ msg }}
+            </div>
+            <button class="submit-btn" :disabled="submitting || !file" data-sfx="click">
+              <span v-if="submitting" class="spinner"></span>
+              {{ submitting ? statusMsg : '🚀 确认并提交' }}
             </button>
           </div>
-
-          <div class="creatorRow" v-if="uidHint">
-            <div class="hint" :class="uidHintClass">{{ uidHint }}</div>
-            <img v-if="uidAvatar" class="creatorAvatar" :src="uidAvatar" alt="" />
-          </div>
-
-          <div class="hint">
-            进行创作者注册才能获取唯一ID，并允许上传个人作品哦！可加入绘画部联系律纪或阿笑成为创作者🥰～
-            <br>绘画部群号：627992968，阿笑QQ：2452812504，律纪QQ：3105285630
-          </div>
-        </div>
-
-        <div class="field" v-if="sourceType==='network'">
-          <div class="label">网络图片来源链接（可选）</div>
-          <input class="input" v-model="originUrl" placeholder="https://..." />
-          <div class="hint">
-            上传他人作品必须取得原作者授权！
-          </div>
-        </div>
-      </div>
-
-      <div class="block">
-        <div class="btitle">标签与授权</div>
-
-        <div class="grid2">
-          <div class="field">
-            <div class="label">标签（可选）</div>
-
-            <div class="tagRow">
-              <input
-                class="input"
-                v-model="tagDraft"
-                placeholder="输入一个标签，例如：长门有希"
-                @keydown.enter.prevent="addTag"
-              />
-              <button class="btn-ghost" type="button" @click="addTag" :disabled="!tagDraft.trim()" data-sfx="click">添加</button>
-              <button class="btn-ghost" type="button" @click="clearTags" :disabled="tags.length===0" data-sfx="click">清空</button>
-            </div>
-
-            <div class="tagList" v-if="tags.length">
-              <span class="tagChip" v-for="t in tags" :key="t">
-                <span class="t">#{{ t }}</span>
-                <button class="x" type="button" title="删除" @click="removeTag(t)" data-sfx="click">×</button>
-              </span>
-            </div>
-
-            <div class="hint">标签会参与搜索,也可点击标签进行快速筛选。</div>
-          </div>
-
-          <div class="field" v-if="sourceType==='personal'">
-            
-            <div class="label">对大众/网络的授权许可（可多选）</div>
-            <div class="licenseBox">
-              <label class="licItem" v-for="opt in NET_LICENSE_OPTIONS" :key="opt">
-                <input type="checkbox" :value="opt" v-model="netLicenses" />
-                <span class="licText">{{ opt }}</span>
-              </label>
-            </div>
-            <div class="hint" style="margin-bottom: 12px;">这些授权信息将公开显示在图片详情页。</div>
-
-            <div class="label">对应援团的特别授权（可多选）</div>
-            <div class="licenseBox">
-              <label class="licItem" v-for="opt in GROUP_LICENSE_OPTIONS" :key="opt">
-                <input type="checkbox" :value="opt" v-model="groupLicenses" />
-                <span class="licText">{{ opt }}</span>
-              </label>
-            </div>
-            <div class="hint">这些信息仅在后台可见，用于社团内部企划或周边制作参考。</div>
-
-          </div>
-        </div>
-      </div>
-
-      <div class="block">
-        <div class="btitle">图片文件</div>
-
-        <div class="field">
-          <div class="label">选择图片文件（必选）</div>
-          <input class="input file" type="file" accept="image/*" @change="onFile" required />
-          <div class="hint">系统将自动压缩生成预览图用于网页展示，同时保留您上传的原图用于下载。</div>
-        </div>
-
-        <div class="actions">
-          <button class="btn" :disabled="submitting || !file" data-sfx="click">
-            {{ submitting ? statusMsg : '提交' }}
-          </button>
-          <span class="msg" :class="{ error: isError }">{{ msg }}</span>
-        </div>
-      </div>
-    </form>
-  </section>
+        </section>
+      </form>
+    </section>
+  </div>
 </template>
 
 <script setup>
@@ -244,10 +311,10 @@ async function checkUid(){
     if(r.exists){
       uidExists.value = true
       uidAvatar.value = r.creator?.avatar_url || ''
-      uidHint.value = '✅ 唯一ID存在（已匹配头像）'
+      uidHint.value = '✅ 唯一ID存在'
     }else{
       uidExists.value = false
-      uidHint.value = '❌ 唯一ID不存在（请检查输入或联系管理员导入名单）'
+      uidHint.value = '❌ 唯一ID不存在（请检查输入或联系管理员登记）'
     }
   }catch(e){
     uidExists.value = false
@@ -352,7 +419,7 @@ async function submit(){
     originUrl.value = ''
     file.value = null
     // Reset file input value manually to clear the UI selection
-    const fileInput = document.querySelector('.input.file')
+    const fileInput = document.getElementById('fileUpload')
     if(fileInput) fileInput.value = ''
     
     clearTags()
@@ -369,249 +436,538 @@ async function submit(){
 </script>
 
 <style scoped>
-/* --- 头部布局 --- */
-.head { 
-  display: flex; 
-  align-items: flex-end; 
+/* 变量映射：适配现代风格 CSS 变量 */
+.upload-page {
+  --primary: hsl(172, 78%, 42%);
+  --primary-soft: hsl(172, 65%, 92%);
+  --primary-hover: hsl(172, 80%, 38%);
+  --text-main: hsl(210, 20%, 14%);
+  --text-sub: hsl(210, 10%, 45%);
+  --bg-input: rgba(255, 255, 255, 0.6);
+  --border: rgba(0, 0, 0, 0.08);
+  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+  --radius-lg: 18px;
+  --radius-md: 12px;
+}
+
+/* 容器布局 */
+.container-card {
+  max-width: 900px;
+  margin: 0 auto;
+  padding-bottom: 60px;
+}
+
+/* 头部 Header */
+.page-header {
+  display: flex;
   justify-content: space-between;
-  gap: 20px; 
-  margin-bottom: 24px;
-  position: relative; 
+  align-items: flex-end;
+  margin-bottom: 32px;
+  padding: 0 12px;
 }
 
-.head-content {
-  flex: 1; 
-  display: grid; 
-  gap: 6px;
-  z-index: 2; 
+.header-text {
+  z-index: 2;
 }
 
-.h1 { font-size: 36px; font-weight: 950; letter-spacing: .4px; }
-.sub { opacity: .72; }
+.main-title {
+  font-size: 36px;
+  font-weight: 950;
+  letter-spacing: -0.5px;
+  margin: 0;
+  background: linear-gradient(135deg, var(--text-main) 0%, #4b5563 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
 
-/* 头部装饰图 (电脑端样式) */
-.head-image img {
-  position: absolute;
-  right: 0;        
-  bottom: -20px;   
-  height: 220px;   
-  width: auto;
+.sub-title {
+  margin: 8px 0 0;
+  font-size: 16px;
+  color: var(--text-sub);
+  font-weight: 500;
+}
+
+.header-decoration .deco-img {
+  height: 160px;
   object-fit: contain;
-  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
-  z-index: 1; 
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,0.1));
+  transform: translateY(10px);
+  transition: transform 0.3s ease;
+}
+.header-decoration:hover .deco-img {
+  transform: translateY(0) rotate(2deg);
 }
 
-/* --- 表单容器 --- */
-.form {
-  position: relative;
-  overflow: hidden;
+/* 表单主体 */
+.main-form {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-radius: 24px;
-  border: 1px solid rgba(255,255,255,0.6);
-  background: rgba(255, 255, 255, 0.6); 
-  box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 
+    0 20px 40px rgba(0,0,0,0.05),
+    inset 0 1px 0 rgba(255,255,255,0.8);
+  padding: 8px; /* Inner padding for sections */
+}
+
+/* 表单区块 Section */
+.form-section {
+  padding: 32px;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+}
+.form-section:last-child {
+  border-bottom: none;
+}
+
+.section-head {
+  margin-bottom: 24px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 0;
+  position: relative;
+  padding-left: 14px;
+}
+.section-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 16px;
+  background: var(--primary);
+  border-radius: 2px;
+}
+
+.section-desc {
+  font-size: 13px;
+  color: var(--text-sub);
+  font-weight: 500;
+}
+
+/* 表单栅格与控件 */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.form-label .req { color: #ef4444; }
+.form-label .opt { color: var(--text-sub); font-weight: 400; font-size: 12px; }
+
+/* 输入框样式 */
+.form-input, .form-textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: var(--bg-input);
+  color: var(--text-main);
+  font-size: 15px;
+  font-weight: 600;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.form-input:hover, .form-textarea:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.form-input:focus, .form-textarea:focus {
+  background: #fff;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+  outline: none;
+}
+
+.form-textarea {
+  min-height: 120px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.form-hint {
+  font-size: 13px;
+  color: var(--text-sub);
+  margin-top: 4px;
+}
+.form-hint.warning { color: #d97706; }
+.form-hint.center { text-align: center; }
+
+/* Segment Control */
+.segment-control {
+  display: flex;
+  background: rgba(0,0,0,0.04);
+  padding: 4px;
+  border-radius: 14px;
+  gap: 4px;
+}
+
+.segment-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-sub);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.segment-btn:hover { color: var(--text-main); }
+.segment-btn.active {
+  background: #fff;
+  color: var(--primary);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.segment-btn .icon { font-size: 16px; }
+
+/* 复合输入框 (Action Button) */
+.input-with-action {
+  display: flex;
+  gap: 10px;
+}
+.action-btn {
+  padding: 0 20px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--text-main);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.action-btn:hover:not(:disabled) { transform: translateY(-1px); background: #000; }
+
+.action-btn.secondary {
+  background: rgba(0,0,0,0.05);
+  color: var(--text-main);
+}
+.action-btn.secondary:hover:not(:disabled) { background: rgba(0,0,0,0.1); }
+
+/* UID 验证反馈 */
+.uid-feedback {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.5);
+  border-radius: 12px;
+}
+.status-badge { font-size: 14px; font-weight: 700; }
+.status-badge.ok { color: #10b981; }
+.status-badge.bad { color: #ef4444; }
+.creator-avatar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.info-card {
+  margin-top: 12px;
+  padding: 16px;
+  background: #eff6ff;
+  border-radius: 12px;
+  font-size: 13px;
+  color: #1e40af;
+  line-height: 1.5;
+}
+.info-card p { margin: 0; }
+.info-card .sub-info { margin-top: 6px; opacity: 0.8; font-size: 12px; }
+
+/* Tags */
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 20px;
+  font-size: 13px;
+  color: var(--primary);
+  font-weight: 700;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+}
+.tag-remove {
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  border-radius: 4px;
+}
+.tag-remove:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
+.text-btn {
+  margin-top: 8px;
+  background: none;
+  border: none;
+  color: var(--text-sub);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.text-btn:hover { color: var(--text-main); }
+
+/* License Cards & Layout */
+.license-split-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 10px;
+}
+
+.license-col {
   display: flex;
   flex-direction: column;
 }
 
-/* --- 背景图 (电脑端默认) --- */
-.form::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background-image: url('../assets/upload-bg.webp');
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: 100% auto; 
-  filter: blur(0px) saturate(1.2); 
-  transform: scale(1); 
-  opacity: 1;
+.license-header {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-sub);
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+}
+.badge-private {
+  font-size: 10px;
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #6b7280;
 }
 
-.block {
-  padding: 24px 32px;
-  border-radius: 0;
-  border: none;
-  background: transparent;
-  box-shadow: none;
-  display: grid;
-  gap: 16px;
-  border-bottom: 1px solid rgba(0,0,0,0.06);
+.checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.block:last-child {
-  border-bottom: none;
-}
-
-.btitle {
-  font-size: 32px;
-  font-weight: 950;
-  letter-spacing: .2px;
-  opacity: .90;
-  margin-bottom: 8px;
-}
-
-.grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:20px; }
-@media (max-width: 820px){ .grid2{ grid-template-columns: 1fr; } }
-
-.field{ display:grid; gap:8px; }
-.label{ font-weight:950; font-size:20px; opacity:.85; letter-spacing:.3px; }
-
-.input, .textarea{
-  width:100%;
-  padding:12px 14px;
-  border-radius:12px;
-  border:1px solid rgba(0,0,0,.1); 
-  background: rgba(255,255,255,0.35); 
-  font-weight: 850;
-  outline:none;
-  transition: all 0.2s;
-  backdrop-filter: blur(2px);
-}
-.input:focus, .textarea:focus{
-  border-color: rgba(20,184,166,.6);
-  background: rgba(255,255,255,0.4); 
-  box-shadow: 0 0 0 4px rgba(20,184,166,.15);
-}
-.textarea{ min-height: 120px; resize: vertical; }
-
-.hint{ font-size:18px; opacity:.7; line-height:1.5; font-weight: 600; }
-.hint.ok{ opacity:1; color: rgba(16,120,70,1); }
-.hint.bad{ opacity:1; color: rgba(200,40,40,1); }
-
-.inline{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-.inline .input{ flex:1; min-width: 240px; }
-
-.creatorRow{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top: 4px; }
-.creatorAvatar{ width:40px; height:40px; border-radius:50%; object-fit:cover; border:2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-
-.seg{ display:flex; gap:8px; flex-wrap:wrap; }
-
-.segbtn{
-  border:1px solid rgba(0,0,0,.1);
-  background: rgba(255,255,255,.15); 
-  padding:9px 16px;
-  border-radius:999px;
-  cursor:pointer;
-  font-weight:950;
-  opacity:.86;
-  transition: all .2s ease;
-  backdrop-filter: blur(2px);
-}
-.segbtn:hover{ opacity:1; transform: translateY(-1px); background: rgba(255,255,255,.3); }
-.segbtn:active{ transform: translateY(0) scale(0.98); }
-.segbtn.on{
-  background: #1f2937;
-  color:#fff;
-  border-color: #1f2937;
-  opacity:1;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-}
-
-.file{ padding:10px; background: rgba(255,255,255,0.35); backdrop-filter: blur(2px); }
-
-.actions{ display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-top: 10px; }
-.msg{ opacity:.9; font-weight:850; color: #059669; }
-.msg.error{ color: #d32f2f; }
-
-.tagRow{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-.tagRow .input{ flex:1; min-width: 240px; }
-
-.tagList{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top: 6px; }
-
-.tagChip{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  padding:6px 12px;
-  border-radius:8px;
-  border:1px solid rgba(0,0,0,.1);
-  background: rgba(255,255,255,0.25); 
-  font-size:18px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-  backdrop-filter: blur(2px);
-}
-.tagChip .t{ font-weight:950; color: #2563eb; }
-.tagChip .x{
-  border:0;
-  background: transparent;
-  cursor:pointer;
-  font-weight:950;
-  color: #999;
-  padding: 0 4px;
-}
-.tagChip .x:hover{ color: #d32f2f; }
-
-.licenseBox{
-  display:grid;
-  gap:12px;
-  padding: 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(0,0,0,.10);
-  background: rgba(255,255,255,.15); 
-  backdrop-filter: blur(2px);
-}
-.licItem{ display:flex; gap:10px; align-items:flex-start; cursor:pointer; user-select:none; }
-.licItem input{ margin-top: 3px; accent-color: #1f2937; }
-.licText{ font-weight: 850; opacity: .9; line-height: 1.4; font-size: 16px; }
-
-.btn, .btn-ghost {
-  padding: 10px 20px;
+.checkbox-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: var(--bg-input);
   border-radius: 12px;
-  font-weight: 950;
   cursor: pointer;
   transition: all 0.2s;
+  border: 1px solid transparent;
+}
+.checkbox-card:hover { background: #fff; box-shadow: var(--shadow-sm); }
+.checkbox-card:has(.chk-input:checked) {
+  background: #f0fdfa; /* Teal-50 */
+  border-color: var(--primary);
 }
 
-.btn {
-  background: #1f2937;
-  color: #fff;
+.chk-input { display: none; }
+.chk-custom {
+  width: 18px; height: 18px;
+  border: 2px solid #d1d5db;
+  border-radius: 5px;
+  position: relative;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  background: #fff;
+}
+.chk-input:checked + .chk-custom {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.chk-input:checked + .chk-custom::after {
+  content: '';
+  position: absolute;
+  left: 5px; top: 1px;
+  width: 5px; height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.chk-label {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* File Upload */
+.upload-section { background: rgba(255,255,255,0.4); }
+
+.file-drop-area {
+  position: relative;
+  border: 2px dashed #cbd5e1;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.5);
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+.file-drop-area:hover {
+  border-color: var(--primary);
+  background: rgba(255,255,255,0.8);
+}
+.file-drop-area.has-file {
+  border-style: solid;
+  border-color: var(--primary);
+  background: #f0fdfa;
+}
+
+.file-input-hidden {
+  position: absolute;
+  width: 100%; height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.file-drop-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.upload-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.8; }
+.upload-text { font-size: 16px; color: var(--text-main); }
+
+.file-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: slideUp 0.3s ease;
+}
+.file-icon { font-size: 32px; margin-bottom: 8px; }
+.file-name { font-weight: 700; color: var(--text-main); margin-bottom: 4px; word-break: break-all; max-width: 300px; }
+.file-meta { font-size: 12px; color: var(--text-sub); }
+.file-change-hint {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--primary);
+  font-weight: 700;
+  background: rgba(255,255,255,0.8);
+  padding: 4px 12px;
+  border-radius: 99px;
+}
+
+/* Form Actions */
+.form-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.message-box {
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 14px;
+  text-align: center;
+  width: 100%;
+  animation: fadeIn 0.3s;
+}
+.message-box.error { background: #fee2e2; color: #b91c1c; }
+.message-box.success { background: #d1fae5; color: #047857; }
+
+.submit-btn {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  padding: 16px;
   border: none;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--text-main) 0%, #111827 100%);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2);
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
-.btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.25); background: #000; }
-.btn:active:not(:disabled) { transform: translateY(0); }
-.btn:disabled { opacity: 0.6; cursor: not-allowed; background: #9ca3af; }
-
-.btn-ghost {
-  background: rgba(255,255,255,0.35); 
-  border: 1px solid rgba(0,0,0,0.1);
-  color: #374151;
-  backdrop-filter: blur(2px);
+.submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 30px -5px rgba(0,0,0,0.3);
+  background: linear-gradient(135deg, #000 0%, #1f2937 100%);
 }
-.btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.4); border-color: rgba(0,0,0,0.3); }
+.submit-btn:active:not(:disabled) { transform: translateY(0); }
+.submit-btn:disabled { opacity: 0.6; cursor: not-allowed; filter: grayscale(1); }
 
-/* =======================================================
-   移动端优化
-   ======================================================= */
+.spinner {
+  width: 20px; height: 20px;
+  border: 3px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 0.8s linear infinite;
+}
+
+/* 动画 */
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes slideUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.3s ease; max-height: 200px; opacity: 1; overflow: hidden; }
+.fade-slide-enter-from, .fade-slide-leave-to { max-height: 0; opacity: 0; transform: translateY(-10px); margin-top: 0; padding-top: 0; padding-bottom: 0; }
+
+.list-enter-active, .list-leave-active { transition: all 0.3s ease; }
+.list-enter-from, .list-leave-to { opacity: 0; transform: translateX(-10px); }
+
+/* 响应式调整 */
 @media (max-width: 768px) {
-  .form::before {
-    background-image: none !important; 
-    background-color: rgba(255, 255, 255, 0.85); 
-  }
-
-  .head-image {
-    display: none;
-  }
-
-  .head {
-    flex-direction: column; 
-    align-items: flex-start;
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-  .h1 { font-size: 28px; } 
-  .sub { font-size: 14px; }
-
-  .block {
-    padding: 20px 16px; 
-    gap: 12px;
-  }
+  .page-header { flex-direction: column; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
+  .header-decoration { display: none; } /* 移动端隐藏装饰图 */
   
-  .btitle { font-size: 24px; }
-  .label { font-size: 16px; }
-  .hint { font-size: 14px; }
-  .licText { font-size: 14px; }
-  .tagChip { font-size: 14px; padding: 4px 10px; }
+  .form-grid { grid-template-columns: 1fr; gap: 20px; }
+  .form-section { padding: 20px 16px; }
+  
+  .license-split-layout { grid-template-columns: 1fr; gap: 24px; }
 }
 </style>
