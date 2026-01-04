@@ -42,7 +42,7 @@ function isPersonal(item){
 }
 
 function badgeText(item){
-  return isPersonal(item) ? '个人作品' : '网络图片'
+  return isPersonal(item) ? '个人作品' : '网络&其它'
 }
 
 function badgeClass(item){
