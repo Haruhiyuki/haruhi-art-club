@@ -5,8 +5,43 @@
       <div class="deco-vine"></div>
       <div class="deco-flower"></div>
 
-      <div class="modal__media">
-        <img :src="imgSrc" :alt="art?.title || 'artwork'" />
+      <!-- 
+        图片展示区域 
+        ref="mediaContainer" 用于计算边界
+        动态类 is-mobile-expanded 控制移动端全屏模式
+      -->
+      <div 
+        ref="mediaContainer"
+        class="modal__media" 
+        :class="{ 'is-mobile-expanded': isMobileExpanded }"
+        @wheel.prevent="handleWheel"
+      >
+        <!-- 图片本体：绑定动态样式 transform -->
+        <img 
+          :src="imgSrc" 
+          :alt="art?.title || 'artwork'" 
+          :style="imageTransformStyle"
+          class="zoomable-image"
+          draggable="false"
+          @mousedown="startDrag"
+          @touchstart="handleTouchStart"
+          @touchmove="handleTouchMove"
+          @touchend="handleTouchEnd"
+          @click="handleImageClick"
+        />
+
+        <!-- 桌面端：缩放控制栏 (移动端全屏时不显示此栏，依靠手势) -->
+        <div class="zoom-controls" v-if="!isMobileExpanded" @click.stop>
+          <button class="zoom-btn" @click="zoomOut" title="缩小" type="button">−</button>
+          <span class="zoom-text">{{ Math.round(scale * 100) }}%</span>
+          <button class="zoom-btn" @click="zoomIn" title="放大" type="button">+</button>
+          <button class="zoom-btn reset-btn" @click="resetZoom" title="还原" type="button">↺</button>
+        </div>
+
+        <!-- 移动端全屏模式下的提示/关闭按钮 -->
+        <div v-if="isMobileExpanded" class="mobile-close-hint">
+          再次点击图片收起
+        </div>
       </div>
 
       <div class="modal__side">
@@ -138,19 +173,21 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { api } from '../services/api.js'
 
 const props = defineProps({
-  // 兼容两种写法：
-  modelValue: { type: Boolean, default: undefined }, // v-model
-  open: { type: Boolean, default: undefined },       // :open
-  item: { type: Object, default: null },             // :item
-  artwork: { type: Object, default: null }           // :artwork
+  modelValue: { type: Boolean, default: undefined },
+  open: { type: Boolean, default: undefined },
+  item: { type: Object, default: null },
+  artwork: { type: Object, default: null }
 })
 
 const emit = defineEmits(['update:modelValue', 'close', 'tag', 'like'])
 
+/* ----------------------------------
+   基础显示逻辑
+---------------------------------- */
 const visible = computed(() => {
   if(props.modelValue !== undefined) return !!props.modelValue
   if(props.open !== undefined) return !!props.open
@@ -158,71 +195,212 @@ const visible = computed(() => {
 })
 
 const art = computed(() => props.item || props.artwork || null)
-
 const imgSrc = computed(() => {
   const a = art.value
   if(!a) return ''
-  // 优先显示压缩图，如果没有则显示原图
   return a.image_url || a.imageUrl || a.url || ''
 })
+const originalUrl = computed(() => art.value?.original_url || art.value?.originalUrl || art.value?.url || '')
 
-const originalUrl = computed(() => {
-  const a = art.value
-  // 后端返回的 original_url，或者是 url
-  return a?.original_url || a?.originalUrl || a?.url || ''
-})
-
-// --- 新增：生成下载文件名 ---
+// 生成下载文件名
 const downloadFilename = computed(() => {
   const a = art.value
   if(!a) return 'artwork.jpg'
-
-  // 1. 时间：格式化为 YYYYMMDD
   let dateStr = '00000000'
   if(a.created_at) {
     const d = new Date(a.created_at)
-    const y = d.getFullYear()
-    const m = String(d.getMonth()+1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    dateStr = `${y}${m}${day}`
+    dateStr = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`
   }
-
-  // 2. 作者：优先取名字，没有则取 UID，再没有则匿名
   let author = (a.uploader_name || a.uploader_uid || '匿名').trim()
-  
-  // 3. 标题
   let title = (a.title || '作品').trim()
-
-  // 净化文件名 (移除非法字符如 / \ : * ? " < > | )
   const safe = (s) => String(s).replace(/[\\/:*?"<>|]/g, '_').trim()
-  
-  // 组合：时间-作者-标题
   const baseName = `${dateStr}-${safe(author)}-${safe(title)}`
-
-  // 4. 后缀名 (从 url 提取)
   let ext = 'jpg'
   const url = originalUrl.value
   if(url){
-    // 移除 query string
     const cleanUrl = url.split(/[?#]/)[0]
     const parts = cleanUrl.split('.')
     if(parts.length > 1) ext = parts[parts.length - 1]
   }
-
   return `${baseName}.${ext}`
 })
 
-const isWebP = computed(() => imgSrc.value.toLowerCase().includes('.webp'))
-
 const tags = computed(() => Array.isArray(art.value?.tags) ? art.value.tags : [])
-
 const publicLicenses = computed(() => {
   const all = Array.isArray(art.value?.licenses) ? art.value.licenses : []
-  return all
-    .filter(l => l.startsWith('NET:'))
-    .map(l => l.replace('NET:', ''))
+  return all.filter(l => l.startsWith('NET:')).map(l => l.replace('NET:', ''))
 })
 
+/* ----------------------------------
+   图片缩放与拖拽逻辑 (核心增强)
+---------------------------------- */
+const scale = ref(1)
+const translateX = ref(0)
+const translateY = ref(0)
+const isDragging = ref(false)
+const mediaContainer = ref(null)
+
+// 移动端专用状态
+const isMobileExpanded = ref(false) // 是否处于全屏查看模式
+const lastTouchDistance = ref(0) // 用于双指缩放计算
+const lastTouchCenter = ref({ x: 0, y: 0 })
+
+// 计算样式
+const imageTransformStyle = computed(() => {
+  return {
+    transform: `translate(${translateX.value}px, ${translateY.value}px) scale(${scale.value})`,
+    cursor: isDragging.value ? 'grabbing' : (scale.value > 1 ? 'grab' : 'default'),
+    transition: isDragging.value ? 'none' : 'transform 0.1s linear' // 拖动时移除过渡以保证跟手
+  }
+})
+
+// --- 通用操作 ---
+function resetZoom() {
+  scale.value = 1
+  translateX.value = 0
+  translateY.value = 0
+}
+
+function zoomIn() {
+  scale.value = Math.min(scale.value + 0.5, 5) // 最大5倍
+}
+
+function zoomOut() {
+  scale.value = Math.max(scale.value - 0.5, 0.5) // 最小0.5倍
+  if(scale.value <= 1) {
+    translateX.value = 0
+    translateY.value = 0
+  }
+}
+
+// 鼠标滚轮缩放
+function handleWheel(e) {
+  // 如果没有全屏且不是Expanded模式，允许滚轮缩放
+  e.preventDefault()
+  const delta = e.deltaY > 0 ? -0.2 : 0.2
+  const newScale = Math.max(0.5, Math.min(5, scale.value + delta))
+  scale.value = newScale
+  if (newScale <= 1) {
+    translateX.value = 0
+    translateY.value = 0
+  }
+}
+
+// --- 桌面端鼠标拖拽 ---
+let startX = 0, startY = 0, initialTranslateX = 0, initialTranslateY = 0
+
+function startDrag(e) {
+  // 只在左键点击且已放大时允许拖动 (或者在移动端全屏模式下)
+  // 注意：touchstart 也会触发 mousedown，这里做个区分
+  if (e.type === 'mousedown' && e.button !== 0) return
+  if (scale.value <= 1 && !isMobileExpanded.value) return 
+
+  isDragging.value = true
+  startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX
+  startY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY
+  initialTranslateX = translateX.value
+  initialTranslateY = translateY.value
+  
+  // 绑定全局移动事件，防止鼠标移出图片范围
+  if(e.type === 'mousedown') {
+    window.addEventListener('mousemove', onDrag)
+    window.addEventListener('mouseup', stopDrag)
+  }
+}
+
+function onDrag(e) {
+  if (!isDragging.value) return
+  e.preventDefault()
+  const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX
+  const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY
+  
+  const deltaX = clientX - startX
+  const deltaY = clientY - startY
+  
+  translateX.value = initialTranslateX + deltaX
+  translateY.value = initialTranslateY + deltaY
+}
+
+function stopDrag() {
+  isDragging.value = false
+  window.removeEventListener('mousemove', onDrag)
+  window.removeEventListener('mouseup', stopDrag)
+}
+
+// --- 移动端手势逻辑 (点击、双指) ---
+
+// 计算两点距离
+function getDistance(touch1, touch2) {
+  const dx = touch1.clientX - touch2.clientX
+  const dy = touch1.clientY - touch2.clientY
+  return Math.hypot(dx, dy)
+}
+
+function handleImageClick(e) {
+  // 仅在移动端尺寸检测有效，或简单的UA判断
+  // 这里简化：如果当前不是Expanded状态，且是Touch触发的click（通常），则展开
+  // 为了更好的体验，我们假设宽度小于800px视为移动端
+  const isMobile = window.innerWidth <= 800
+  
+  if (isMobile) {
+    if (!isMobileExpanded.value) {
+      // 进入全屏模式
+      isMobileExpanded.value = true
+      // 可以在这里重置缩放，或者保持
+      resetZoom()
+    } else {
+      // 已在全屏模式，如果不在拖拽/缩放中，则点击关闭
+      // 这里由 click 事件触发，说明刚才没有进行复杂的 pinch/drag
+      isMobileExpanded.value = false
+      resetZoom()
+    }
+  }
+}
+
+function handleTouchStart(e) {
+  if (e.touches.length === 2) {
+    // 双指：开始缩放
+    isDragging.value = false // 此时优先缩放
+    lastTouchDistance.value = getDistance(e.touches[0], e.touches[1])
+  } else if (e.touches.length === 1) {
+    // 单指：可能是点击，也可能是拖拽
+    if (scale.value > 1 || isMobileExpanded.value) {
+      startDrag(e)
+    }
+  }
+}
+
+function handleTouchMove(e) {
+  if (e.touches.length === 2) {
+    // 双指缩放逻辑
+    e.preventDefault() // 防止页面滚动
+    const dist = getDistance(e.touches[0], e.touches[1])
+    if (lastTouchDistance.value > 0) {
+      const ratio = dist / lastTouchDistance.value
+      // 稍微平滑一点的缩放倍率应用
+      let newScale = scale.value * ratio
+      newScale = Math.max(0.5, Math.min(newScale, 5))
+      scale.value = newScale
+    }
+    lastTouchDistance.value = dist
+  } else if (e.touches.length === 1 && isDragging.value) {
+    // 单指拖拽逻辑
+    onDrag(e)
+  }
+}
+
+function handleTouchEnd(e) {
+  if (e.touches.length < 2) {
+    lastTouchDistance.value = 0
+  }
+  if (e.touches.length === 0) {
+    isDragging.value = false
+  }
+}
+
+/* ----------------------------------
+   评论与杂项
+---------------------------------- */
 const comments = ref([])
 const loadingComments = ref(false)
 const commentName = ref('')
@@ -232,6 +410,11 @@ const posting = ref(false)
 function close(){
   emit('update:modelValue', false)
   emit('close')
+  // 关闭时重置状态
+  setTimeout(() => {
+    resetZoom()
+    isMobileExpanded.value = false
+  }, 200)
 }
 
 async function loadComments(){
@@ -381,14 +564,42 @@ onMounted(() => {
   .garden-modal::before { display: none; }
 }
 
+/* --- 媒体展示区域 --- */
 .modal__media {
   background: rgba(240, 242, 245, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  overflow: hidden;
+  overflow: hidden; /* 防止图片放大溢出 */
   border-radius: 16px 0 0 16px;
+  user-select: none;
+}
+
+/* 移动端全屏模式样式 */
+.modal__media.is-mobile-expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #000;
+  border-radius: 0;
+  width: 100vw;
+  height: 100vh;
+}
+.modal__media.is-mobile-expanded img {
+  object-fit: contain; 
+}
+.mobile-close-hint {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255,255,255,0.7);
+  background: rgba(0,0,0,0.5);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  pointer-events: none;
 }
 
 .modal__media::after {
@@ -399,15 +610,66 @@ onMounted(() => {
   pointer-events: none;
 }
 
-.modal__media img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-  mix-blend-mode: multiply; 
-  filter: contrast(1.02);
+/* 移除遮罩以支持纯净查看 */
+.modal__media.is-mobile-expanded::after {
+  display: none;
 }
 
+.zoomable-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+  /* 移除混合模式以免影响查看原图细节，或者在非expanded模式下保留 */
+  /* mix-blend-mode: multiply; */
+  transform-origin: center center;
+  will-change: transform;
+}
+
+/* --- 缩放控制条 (桌面端) --- */
+.zoom-controls {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  padding: 6px 10px;
+  border-radius: 99px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  border: 1px solid rgba(255,255,255,0.6);
+  z-index: 20;
+}
+.zoom-btn {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(107, 140, 133, 0.2);
+  background: #fff;
+  color: var(--text-deep);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  transition: all 0.2s;
+}
+.zoom-btn:hover {
+  background: var(--flower-pink);
+  border-color: var(--flower-pink);
+  color: #fff;
+}
+.zoom-text {
+  font-size: 12px;
+  font-family: monospace;
+  color: var(--text-deep);
+  min-width: 36px;
+  text-align: center;
+}
+.reset-btn { font-size: 12px; }
+
+/* --- 右侧侧边栏 --- */
 .modal__side {
   display: flex; flex-direction: column;
   background: rgba(255, 255, 255, 0.4);
