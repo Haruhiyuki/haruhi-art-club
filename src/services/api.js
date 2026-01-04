@@ -12,7 +12,7 @@ function buildUrl(path, params) {
 
 async function request(method, path, { params, body, isForm, headers } = {}) {
   const url = buildUrl(path, params)
-  // 获取已存储的密码以用于 header
+
   const adminPw = localStorage.getItem('admin_pw')
   const authHeaders = adminPw ? { 'x-admin-password': adminPw } : {}
 
@@ -20,10 +20,10 @@ async function request(method, path, { params, body, isForm, headers } = {}) {
     method,
     credentials: 'include',
     headers: {
-      'Accept': 'application/json',
+      Accept: 'application/json',
       ...authHeaders,
-      ...(headers || {})
-    }
+      ...(headers || {}),
+    },
   }
 
   if (method !== 'GET' && method !== 'HEAD') {
@@ -52,9 +52,10 @@ export const api = {
   // Public
   artworksList: (params) => request('GET', '/api/artworks', { params }),
   creatorProfile: (uid) => request('GET', `/api/creators/${encodeURIComponent(uid)}`),
-  creatorWorks: (params) => request('GET', '/api/artworks', {
-    params: { ...params, status: 'approved', source_type: 'personal', uploader_uid: params.uid }
-  }),
+  creatorWorks: (params) =>
+    request('GET', '/api/artworks', {
+      params: { ...params, status: 'approved', source_type: 'personal', uploader_uid: params.uid },
+    }),
   verifyCreator: (uid) => request('GET', '/api/creators/verify', { params: { uid } }),
   uploadArtwork: (formData) => request('POST', '/api/artworks', { body: formData, isForm: true }),
 
@@ -64,7 +65,7 @@ export const api = {
   listComments: (artworkId) => request('GET', '/api/comments', { params: { artwork_id: artworkId } }),
   postComment: (body) => request('POST', '/api/comments', { body }),
 
-  // Admin - Auth (新增)
+  // Admin - Auth
   adminVerify: (password) => request('POST', '/api/admin/verify', { body: { password } }),
 
   // Admin - Artworks
@@ -87,8 +88,8 @@ export const api = {
   adminAddCreator: (uid) => request('POST', '/api/admin/creators', { body: { uid } }),
   adminGrantPoints: (body) => request('POST', '/api/admin/points/grant', { body }),
 
-    // Points & Leaderboard
-  pointsLeaderboard: (page=1) => request('GET', '/api/points/leaderboard', { params: { page } }),
+  // Points & Leaderboard
+  pointsLeaderboard: (page = 1) => request('GET', '/api/points/leaderboard', { params: { page } }),
   pointsHistory: (uid) => request('GET', '/api/points/history', { params: { uid } }),
-  searchCreators: (q) => request('GET', '/api/creators/search', { params: { q } })
+  searchCreators: (q) => request('GET', '/api/creators/search', { params: { q } }),
 }
