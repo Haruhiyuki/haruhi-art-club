@@ -415,7 +415,7 @@ async function submit(){
   position: absolute;
   inset: 0;
   z-index: -1;
-  background-image: url('src/assets/upload-bg.webp');
+  background-image: url('../assets/upload-bg.webp');
   background-position: center;
   background-repeat: no-repeat;
   background-size: 100% auto; 
