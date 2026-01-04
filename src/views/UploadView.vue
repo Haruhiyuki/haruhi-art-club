@@ -72,13 +72,17 @@
           </div>
 
           <div class="hint">
-            加入创作者名单才能获取唯一ID，并允许上传个人作品哦！可联系春日酱或绘画部运营成为创作者🥰～
+            进行创作者注册才能获取唯一ID，并允许上传个人作品哦！可加入绘画部联系律纪或阿笑成为创作者🥰～
+            <br>绘画部群号：627992968，阿笑QQ：2452812504，律纪QQ：3105285630
           </div>
         </div>
 
         <div class="field" v-if="sourceType==='network'">
           <div class="label">网络图片来源链接（可选）</div>
           <input class="input" v-model="originUrl" placeholder="https://..." />
+          <div class="hint">
+            上传他人作品必须取得原作者授权！
+          </div>
         </div>
       </div>
 
