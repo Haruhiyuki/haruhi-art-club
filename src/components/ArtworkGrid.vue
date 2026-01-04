@@ -9,6 +9,11 @@ const props = defineProps({
   list: { type: Array, default: undefined },
   data: { type: Array, default: undefined },
 
+  // --- 新增：分页相关 Props ---
+  page: { type: Number, default: 1 },
+  hasMore: { type: Boolean, default: false },
+  loading: { type: Boolean, default: false },
+
   // 兼容回调
   onOpen: { type: Function, default: null },
   onLike: { type: Function, default: null },
@@ -18,7 +23,8 @@ const props = defineProps({
 const emit = defineEmits([
   'open', 'like', 'tag',
   'select', 'itemClick', 'click', 'likeArtwork', 'tagClick',
-  'author' // 新增事件
+  'author',
+  'prevPage', 'nextPage' // --- 新增：翻页事件 ---
 ])
 
 // const router = useRouter() 
@@ -169,6 +175,39 @@ function clickTag(tag, item, e){
         </div>
       </article>
     </div>
+
+    <div class="pagination-twin" v-if="page > 1 || hasMore">
+      <div class="twin-branch left" :class="{ disabled: page <= 1 }">
+        <button 
+          class="twin-btn prev" 
+          @click="emit('prevPage')" 
+          :disabled="page <= 1 || loading"
+          data-sfx="click"
+        >
+          <span class="icon">←</span>
+          <span class="text">PREV</span>
+        </button>
+        <div class="vine-deco"></div>
+      </div>
+
+      <div class="twin-knot">
+        <span class="page-num">{{ page }}</span>
+      </div>
+
+      <div class="twin-branch right" :class="{ disabled: !hasMore }">
+        <button 
+          class="twin-btn next" 
+          @click="emit('nextPage')" 
+          :disabled="!hasMore || loading"
+          data-sfx="click"
+        >
+          <span class="text">NEXT</span>
+          <span class="icon">→</span>
+        </button>
+        <div class="vine-deco"></div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -189,6 +228,12 @@ function clickTag(tag, item, e){
   --text-muted: rgba(255, 255, 255, 0.55);
 
   --shadow-media: 0 10px 30px -5px rgba(0, 242, 255, 0.15); 
+
+  /* Twin Theme Colors (Green) */
+  --twin-primary: #10b981; /* Emerald 500 */
+  --twin-dark: #064e3b;    /* Emerald 900 */
+  --twin-light: #a7f3d0;   /* Emerald 200 */
+  --twin-glow: rgba(16, 185, 129, 0.5);
 
   width: min(1450px, calc(100% - 40px));
   margin: 60px auto 120px; 
@@ -485,5 +530,134 @@ function clickTag(tag, item, e){
   color: #fff;
   border-color: rgba(255,255,255,0.3);
   text-shadow: 0 0 5px rgba(255,255,255,0.5);
+}
+
+/* =========================
+   Twin Pagination (艺术化双子翻页)
+   ========================= */
+.pagination-twin {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 80px;
+  margin-bottom: 40px;
+  gap: 0; /* 必须为0，确保视觉连接 */
+  position: relative;
+  height: 60px;
+}
+
+/* 中心的核心结 */
+.twin-knot {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--twin-light), var(--twin-primary));
+  box-shadow: 0 0 20px var(--twin-glow), inset 0 0 10px rgba(255,255,255,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  border: 2px solid #fff;
+}
+
+.page-num {
+  font-family: monospace;
+  font-weight: 900;
+  font-size: 18px;
+  color: var(--twin-dark);
+}
+
+/* 左右分支容器 */
+.twin-branch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  transition: all 0.4s ease;
+  opacity: 1;
+}
+
+/* 不可用时隐藏分支 */
+.twin-branch.disabled {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.8);
+}
+
+/* 按钮基础样式 */
+.twin-btn {
+  background: transparent;
+  border: 2px solid var(--twin-primary);
+  color: var(--twin-light);
+  height: 40px;
+  padding: 0 24px;
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+  backdrop-filter: blur(4px);
+}
+
+.twin-btn:hover {
+  background: var(--twin-primary);
+  color: var(--twin-dark);
+  box-shadow: 0 0 15px var(--twin-glow);
+  text-shadow: none;
+}
+
+.twin-btn:active {
+  transform: scale(0.95);
+}
+
+/* 左侧按钮：连接到右侧结 */
+.twin-branch.left .twin-btn {
+  border-right: none; 
+  border-radius: 20px 0 0 20px;
+  padding-right: 30px; /* 留出空间给结 */
+  margin-right: -10px; /* 缩进 */
+}
+
+/* 右侧按钮：连接到左侧结 */
+.twin-branch.right .twin-btn {
+  border-left: none; 
+  border-radius: 0 20px 20px 0;
+  padding-left: 30px; /* 留出空间给结 */
+  margin-left: -10px; /* 缩进 */
+}
+
+/* 装饰藤蔓线条 */
+.vine-deco {
+  position: absolute;
+  top: 50%;
+  width: 40px;
+  height: 2px;
+  background: var(--twin-primary);
+  z-index: -1;
+  opacity: 0.6;
+}
+
+.twin-branch.left .vine-deco {
+  right: 0;
+  transform: rotate(-15deg);
+  transform-origin: right center;
+  box-shadow: 0 5px 0 var(--twin-light);
+}
+
+.twin-branch.right .vine-deco {
+  left: 0;
+  transform: rotate(15deg);
+  transform-origin: left center;
+  box-shadow: 0 5px 0 var(--twin-light);
+}
+
+.twin-branch:hover .vine-deco {
+  opacity: 1;
+  box-shadow: 0 0 10px var(--twin-glow);
 }
 </style>

@@ -7,7 +7,7 @@ function includesWord(hay, q){
   return norm(hay).includes(norm(q))
 }
 
-function filterLocal(items, { content='haruhi', sourceMode='balanced', q='', searchField='all' }){
+function filterLocal(items, { content='haruhi', sourceMode='all', q='', searchField='all' }){
   let arr = items.filter(x => x.status === 'approved')
 
   if(content === 'haruhi' || content === 'other'){
@@ -21,7 +21,6 @@ function filterLocal(items, { content='haruhi', sourceMode='balanced', q='', sea
   const qq = String(q || '').trim()
   if(qq){
     arr = arr.filter(x => {
-      // 简单的本地模拟搜索逻辑
       const tags = Array.isArray(x.tags) ? x.tags.join(' ') : ''
       const title = x.title || ''
       const desc = x.description || ''
@@ -31,8 +30,7 @@ function filterLocal(items, { content='haruhi', sourceMode='balanced', q='', sea
       if(searchField === 'title') return includesWord(title, qq)
       if(searchField === 'uid') return includesWord(uid, qq) || includesWord(name, qq)
       if(searchField === 'tag') return includesWord(tags, qq)
-      
-      // all
+
       return (
         includesWord(title, qq) ||
         includesWord(desc, qq) ||
@@ -56,18 +54,25 @@ function paginate(arr, page, pageSize){
 export const useGalleryStore = defineStore('gallery', {
   state: () => ({
     content: 'haruhi',
-    sourceMode: 'balanced',
+    // ✅ 修复点：默认必须是 all（与你的 UI “全部”一致）
+    sourceMode: 'all',
+
     q: '',
-    searchField: 'all', // 新增：搜索范围字段
+    searchField: 'all',
+
     page: 1,
-    pageSize: 24,
+    limit: 12,
 
     loading: false,
     error: '',
     list: [],
     total: 0,
+    hasMore: false,
 
     usingSeed: false,
+
+    // --- 请求计数器，解决竞态问题 ---
+    reqId: 0
   }),
 
   actions: {
@@ -75,111 +80,136 @@ export const useGalleryStore = defineStore('gallery', {
       if(patch.content !== undefined) this.content = patch.content
       if(patch.sourceMode !== undefined) this.sourceMode = patch.sourceMode
       if(patch.q !== undefined) this.q = patch.q
-      if(patch.searchField !== undefined) this.searchField = patch.searchField // 新增
+      if(patch.searchField !== undefined) this.searchField = patch.searchField
       if(patch.page !== undefined) this.page = patch.page
-      if(patch.pageSize !== undefined) this.pageSize = patch.pageSize
+      if(patch.limit !== undefined) this.limit = patch.limit
     },
 
     async load(){
+      const currentReqId = ++this.reqId
+
       this.loading = true
       this.error = ''
       this.usingSeed = false
 
       try{
-        // 公共参数，现在包含 searchField
         const commonParams = {
           q: this.q,
-          searchField: this.searchField, 
-          page: this.page 
+          searchField: this.searchField,
+          page: this.page
         }
 
-        // 1. 混合模式 (balanced)
+        let resultData = []
+        let resultTotal = 0
+
+        // --- 执行请求 ---
         if(this.sourceMode === 'balanced'){
-          const halfA = Math.floor(this.pageSize / 2)
-          const halfB = this.pageSize - halfA
+          // 仍保留 balanced（如果你未来要用），但默认不会再走这里
+          const halfA = Math.floor(this.limit / 2)
+          const halfB = this.limit - halfA
 
           const [p1, p2] = await Promise.all([
-            api.artworksList({ status:'approved', content_type:this.content, source_type:'personal', ...commonParams, pageSize: halfA }),
-            api.artworksList({ status:'approved', content_type:this.content, source_type:'network', ...commonParams, pageSize: halfB }),
+            api.artworksList({
+              status:'approved',
+              content_type:this.content,
+              source_type:'personal',
+              ...commonParams,
+              pageSize: halfA
+            }),
+            api.artworksList({
+              status:'approved',
+              content_type:this.content,
+              source_type:'network',
+              ...commonParams,
+              pageSize: halfB
+            }),
           ])
 
-          let merged = [...(p1.data||[]), ...(p2.data||[])]
-          let total = Number(p1.total||0) + Number(p2.total||0)
-
-          // 补齐逻辑
-          if(merged.length < this.pageSize){
-            const need = this.pageSize - merged.length
-            if((p1.data||[]).length < halfA){
-              const extra = await api.artworksList({
-                status:'approved',
-                content_type:this.content,
-                source_type:'network',
-                ...commonParams,
-                page: this.page + 1,
-                pageSize: need,
-              })
-              merged = merged.concat(extra.data || [])
-              total = Math.max(total, Number(extra.total||0) + Number(p1.total||0))
-            } else {
-              const extra = await api.artworksList({
-                status:'approved',
-                content_type:this.content,
-                source_type:'personal',
-                ...commonParams,
-                page: this.page + 1,
-                pageSize: need,
-              })
-              merged = merged.concat(extra.data || [])
-              total = Math.max(total, Number(extra.total||0) + Number(p2.total||0))
-            }
+          if (this.reqId !== currentReqId) {
+            console.log(`[GalleryStore] Ignored stale request #${currentReqId}`)
+            return
           }
 
+          let merged = [...(p1.data||[]), ...(p2.data||[])]
           merged.sort((a,b) => String(b.created_at||'').localeCompare(String(a.created_at||'')))
-          this.list = merged.slice(0, this.pageSize)
-          this.total = total
-        } 
-        // 2. 普通模式
-        else {
-          const out = await api.artworksList({
+
+          resultData = merged
+          resultTotal = Number(p1.total||0) + Number(p2.total||0)
+
+        } else {
+          // ✅ 修复点：all 模式不要传 source_type（让后端返回全量来源）
+          const params = {
             status:'approved',
             content_type: this.content,
-            source_type: this.sourceMode,
             ...commonParams,
-            pageSize: this.pageSize
-          })
-          this.list = out.data || []
-          this.total = Number(out.total || 0)
+            pageSize: this.limit
+          }
+
+          if(this.sourceMode === 'personal' || this.sourceMode === 'network'){
+            params.source_type = this.sourceMode
+          }
+
+          const out = await api.artworksList(params)
+
+          if (this.reqId !== currentReqId) {
+            console.log(`[GalleryStore] Ignored stale request #${currentReqId}`)
+            return
+          }
+
+          resultData = out.data || []
+          resultTotal = Number(out.total || 0)
         }
 
-        // 3. Seed 兜底
-        if(this.total === 0 && this.page === 1 && !this.q){
-          const local = filterLocal(seedArtworks, { 
-            content:this.content, 
-            sourceMode:this.sourceMode, 
-            q:this.q, 
-            searchField:this.searchField 
+        // --- 更新状态 ---
+        this.list = resultData
+        this.total = resultTotal
+
+        if (this.total > 0) {
+          this.hasMore = (this.page * this.limit) < this.total
+        } else {
+          this.hasMore = this.list.length >= this.limit
+        }
+
+        // Seed 兜底
+        if(this.list.length === 0 && this.page === 1 && !this.q && this.total === 0){
+          console.log('Using seed data fallback')
+          const local = filterLocal(seedArtworks, {
+            content:this.content,
+            sourceMode:this.sourceMode,
+            q:this.q,
+            searchField:this.searchField
           })
-          const pg = paginate(local, this.page, this.pageSize)
+          const pg = paginate(local, this.page, this.limit)
+
           this.list = pg.data
           this.total = pg.total
+          this.hasMore = (this.page * this.limit) < this.total
           if(this.list.length > 0) this.usingSeed = true
         }
 
       }catch(e){
+        if (this.reqId !== currentReqId) return
+
         console.warn('API Error, falling back to seed data:', e)
-        this.error = e?.message || '加载失败'
-        const local = filterLocal(seedArtworks, { 
-          content:this.content, 
-          sourceMode:this.sourceMode, 
+        this.error = ''
+
+        const local = filterLocal(seedArtworks, {
+          content:this.content,
+          sourceMode:this.sourceMode,
           q:this.q,
           searchField:this.searchField
         })
-        const pg = paginate(local, this.page, this.pageSize)
+        const pg = paginate(local, this.page, this.limit)
+
         this.list = pg.data
         this.total = pg.total
+        this.hasMore = (this.page * this.limit) < this.total
         this.usingSeed = true
+
       }finally{
-        this.loading = false
+        if (this.reqId === currentReqId) {
+          this.loading = false
+        }
       }
     },
 
@@ -194,7 +224,9 @@ export const useGalleryStore = defineStore('gallery', {
       item.like_total = Number(oldVal || 0) + 1
       try {
         const out = await api.likeArtwork(id)
-        item.like_total = Number(out.totalLikes)
+        if(out && out.totalLikes !== undefined) {
+          item.like_total = Number(out.totalLikes)
+        }
       } catch(e){
         item.like_total = oldVal
         console.error('Like failed:', e)

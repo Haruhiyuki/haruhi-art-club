@@ -3,8 +3,8 @@
     
     <!-- 头部区域 -->
     <div class="header-section">
-      <h1>积分中心</h1>
-      <p class="subtitle">查询你的贡献值，查看 SOS 团风云榜</p>
+      <h1>积分快捷查询</h1>
+      <p class="subtitle">本页面查询和展示的积分情况皆是在此画廊获得的积分，而非所有积分。</p>
     </div>
 
     <!-- 1. 查询区域 -->
@@ -15,7 +15,7 @@
             <input 
               type="text" 
               class="input search-input" 
-              placeholder="输入创作者 UID 搜索..." 
+              placeholder="输入创作者唯一ID搜索..." 
               v-model="query"
               @input="onInput"
               @focus="showSuggestions = true"
@@ -90,7 +90,7 @@
     <!-- 2. 排行榜区域 -->
     <div class="leaderboard-section">
       <h2 class="lb-title">
-        <span class="icon">🏆</span> 积分风云榜
+        <span class="icon">🏆</span> 画廊积分榜
       </h2>
       
       <div class="grid-table">

@@ -115,14 +115,14 @@
 
             <div class="search input-row" style="margin-bottom:10px;">
               <span class="hint">署名</span>
-              <input v-model="commentName" placeholder="留下你的大名吧！" />
+              <input v-model="commentName" placeholder="无需登录，但可不要冒充别人哦！" />
             </div>
 
             <div class="search input-row" style="height:auto; padding: 10px 12px;">
               <textarea
                 v-model="commentBody"
                 rows="3"
-                placeholder="说点什么好呢..."
+                placeholder="下面我来简单喵两句.."
                 style="width:100%; border:none; outline:none; background:transparent; resize: vertical; font-weight:500;"
               ></textarea>
             </div>

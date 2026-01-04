@@ -1,6 +1,5 @@
 <template>
   <section class="container-card">
-    <!-- 状态切换：普通模式显示筛选栏，标签/作者模式显示专属抬头 -->
     <FilterPanel
       v-if="!activeTag && !activeAuthor"
       :content="store.content"
@@ -30,7 +29,6 @@
 
     <div class="statusRow">
       <div class="left">
-        <!-- 这里可以放置加载状态或结果数量等信息 -->
         <span class="muted" v-if="store.usingSeed"></span>
       </div>
     </div>
@@ -40,10 +38,15 @@
     <ArtworkGrid
       v-else
       :items="store.list"
+      :page="store.page"
+      :hasMore="store.hasMore"
+      :loading="store.loading"
       @open="openItem"
       @like="likeItem"
       @tag="onTag"
       @author="onAuthor"
+      @prevPage="handlePrevPage"
+      @nextPage="handleNextPage"
     />
 
     <ArtworkModal
@@ -57,7 +60,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGalleryStore } from '../stores/galleryStore.js'
 import FilterPanel from '../components/FilterPanel.vue'
@@ -72,6 +75,38 @@ const modalOpen = ref(false)
 const activeItem = ref(null)
 const activeTag = ref('')
 const activeAuthor = ref(null) // { uid, name }
+
+// --- 翻页处理 ---
+function handlePrevPage() {
+  if (store.page > 1) {
+    store.page--
+    store.load()
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+}
+
+function handleNextPage() {
+  if (store.hasMore) {
+    store.page++
+    store.load()
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+}
+
+// --- 响应式 PageSize 逻辑 ---
+// allowedToReload: 初始化时设为 false，防止在 onMounted 里重复触发
+function updatePageSize(allowedToReload = true) {
+  const isMobile = window.innerWidth <= 768
+  const targetSize = isMobile ? 8 : 12
+  
+  if (store.limit !== targetSize) {
+    store.limit = targetSize
+    // 只有非初始化阶段，尺寸变化才触发重载
+    if (allowedToReload) {
+      reload()
+    }
+  }
+}
 
 function reload(){
   store.page = 1
@@ -93,8 +128,6 @@ function onTag(t){
 
 // 2. 进入作者模式 -> 更新 URL
 function onAuthor(authorInfo){
-  // authorInfo: { uid, name }
-  // 我们在 URL 里只存 uid，name 通过列表数据反查或临时显示
   router.push({ query: { ...route.query, author: authorInfo.uid, tag: undefined, artwork: undefined } })
 }
 
@@ -105,7 +138,6 @@ function openItem(it){
 
 // 4. 关闭详情 -> 更新 URL
 function closeModal(){
-  // 移除 artwork 参数
   const q = { ...route.query }
   delete q.artwork
   router.push({ query: q })
@@ -113,75 +145,89 @@ function closeModal(){
 
 // 5. 退出特殊模式 -> 清空相关 URL 参数
 function exitMode(){
-  router.push({ query: {} }) // 回到纯净路径
+  router.push({ query: {} }) 
 }
 
-// 监听路由变化，响应式更新视图状态 (支持浏览器后退/前进/分享链接)
-watch(() => route.query, (q, oldQ) => {
+// --- 核心：将路由解析逻辑提取出来 ---
+function syncStateFromRoute(q) {
   const newTag = q.tag
   const newAuthorUid = q.author
   const newArtworkId = q.artwork
   
+  let needsReload = false
+
   // A. 处理标签模式变化
   if (newTag && newTag !== activeTag.value) {
     activeTag.value = newTag
     activeAuthor.value = null
     store.setFilters({ q: newTag, searchField: 'tag' })
-    reload()
+    needsReload = true
   } else if (!newTag && activeTag.value) {
     activeTag.value = ''
-    if (!newAuthorUid) { // 如果也不是作者模式，则重置回普通画廊
+    // 如果也没有作者，则回到默认搜索
+    if (!newAuthorUid) {
       store.setFilters({ q: '', searchField: 'all' })
-      reload()
+      needsReload = true
     }
   }
 
   // B. 处理作者模式变化
   if (newAuthorUid) {
-    // 如果当前已经是该作者模式，不重复刷新
     if (!activeAuthor.value || activeAuthor.value.uid !== newAuthorUid) {
-      activeAuthor.value = { uid: newAuthorUid, name: newAuthorUid } // 名字暂时用UID占位，稍后从列表修正
+      activeAuthor.value = { uid: newAuthorUid, name: newAuthorUid }
       activeTag.value = ''
       store.setFilters({ q: newAuthorUid, searchField: 'uid' })
-      reload()
+      needsReload = true
     }
   } else if (!newAuthorUid && activeAuthor.value) {
     activeAuthor.value = null
     if (!newTag) {
        store.setFilters({ q: '', searchField: 'all' })
-       reload()
+       needsReload = true
     }
   }
 
-  // C. 处理详情弹窗变化
+  // C. 处理详情弹窗
   if (newArtworkId) {
-    // 尝试在当前列表中查找 (支持列表已加载的情况)
     const target = store.list.find(i => String(i.id) === String(newArtworkId))
     if (target) {
       activeItem.value = target
       modalOpen.value = true
     }
-    // 如果列表中没找到（例如分享链接进来），需要等列表加载完再匹配，见下方 store.list 监听
   } else {
     modalOpen.value = false
     activeItem.value = null
   }
-}, { immediate: true })
 
-// 监听列表数据变化，用于修正作者名显示和处理深层链接的详情打开
+  // 如果是在初始化时调用，或者参数确实变了，执行加载
+  // 注意：如果 q.q 存在 (普通搜索)，也需要设置
+  if(q.q && q.q !== store.q){
+     store.setFilters({ q: q.q })
+     needsReload = true
+  }
+
+  // 返回是否需要加载，供调用者判断（虽然这里大部分情况直接 reload 也行）
+  return needsReload
+}
+
+// 监听路由变化 (注意：immediate: false，由 onMounted 手动触发第一次)
+watch(() => route.query, (newQ) => {
+  const shouldLoad = syncStateFromRoute(newQ)
+  if(shouldLoad) reload()
+}, { immediate: false })
+
+
+// 监听列表数据变化 (修正作者名/打开详情)
 watch(() => store.list, (list) => {
   if (!list || list.length === 0) return
 
-  // 1. 修正作者名 (如果当前是作者模式且名字只是UID)
   if (activeAuthor.value && activeAuthor.value.name === activeAuthor.value.uid) {
-    // 既然搜的是 UID，列表中第一个作品应该就是该作者的
     const first = list[0]
     if (first && first.uploader_name) {
       activeAuthor.value.name = first.uploader_name
     }
   }
 
-  // 2. 尝试打开详情 (针对直接访问 ?artwork=xxx 的情况)
   const targetId = route.query.artwork
   if (targetId && !modalOpen.value) {
     const target = list.find(i => String(i.id) === String(targetId))
@@ -192,25 +238,31 @@ watch(() => store.list, (list) => {
   }
 })
 
-// 初始化
+// --- 初始化顺序修复 ---
 onMounted(() => {
-  // 1. 如果 URL 带有查询参数 q (普通搜索分享)，同步到 store
-  if (route.query.q) {
-    store.setFilters({ q: route.query.q })
+  // 1. 先确定尺寸 (更新 store.limit)，但不触发 reload
+  updatePageSize(false)
+
+  // 2. 再根据 URL 设置 Filter
+  const needsReload = syncStateFromRoute(route.query)
+
+  // 3. 最后统一加载一次
+  // 如果 syncStateFromRoute 认为需要 reload，或者当前列表为空，则加载
+  if (needsReload || store.list.length === 0) {
+    reload()
   }
 
-  // 2. 判断是否需要初始加载
-  // watch 只负责监听 tag 和 author 的变化并触发重载。
-  // 如果当前 URL 没有 tag 也没有 author (例如只有 artwork 参数，或者纯净首页，或者只有 q)，
-  // 则需要手动触发一次初始加载。
-  const { tag, author } = route.query
-  if (!tag && !author) {
-    store.load()
-  }
+  // 4. 绑定监听
+  window.addEventListener('resize', () => updatePageSize(true))
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', () => updatePageSize(true))
 })
 </script>
 
 <style scoped>
+/* 样式保持不变，直接复用你之前的即可 */
 .container-card {
   max-width: 1450px;
   margin: 0 auto;
@@ -250,10 +302,9 @@ onMounted(() => {
   transform: translateY(-2px);
 }
 
-/* 作者模式特殊样式 */
 .author-title::before {
-  content: '@'; /* 作者用 @ 符号 */
-  color: #e9b5fd; /* 紫色 */
+  content: '@'; 
+  color: #e9b5fd; 
 }
 .author-title .highlight {
   color: #1a1a1a;
