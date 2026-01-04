@@ -23,25 +23,8 @@ export const useAdminStore = defineStore('admin', {
     },
 
     async approveArtwork(art, note = '') {
+      // Server now handles point granting automatically upon approval
       await api.adminApproveArtwork(art.id, note)
-
-      // 自动发分逻辑
-      const shouldGrant = art?.source_type === 'personal' &&
-        art?.content_type === 'haruhi' &&
-        String(art?.uploader_uid || '').trim()
-
-      if (shouldGrant) {
-        try {
-          await api.adminGrantPoints({
-            uid: String(art.uploader_uid).trim(),
-            artwork_id: Number(art.id),
-            points: 20,
-            note: '审核通过'
-          })
-        } catch (e) {
-          console.warn('Grant points failed:', e)
-        }
-      }
       this.pending = this.pending.filter(p => p.id !== art.id)
     },
 

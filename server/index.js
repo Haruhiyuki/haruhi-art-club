@@ -577,7 +577,7 @@ app.post('/api/admin/verify', (req, res) => {
   }
 })
 
-// Admin API（保持你原来的）
+// Admin API
 app.get('/api/admin/pending-artworks', requireAdmin, async (req, res) => {
   const db = getDb()
   const rows = await db.all(
@@ -603,13 +603,47 @@ app.get('/api/admin/audit-history', requireAdmin, async (req, res) => {
   res.json({ ok: true, data: rows.map(mapArtworkRow) })
 })
 
+// ✅ UPDATE: 审核通过时自动发放积分（修正逻辑：凉宫+120 / 其他+30）
 app.post('/api/admin/artworks/:id/approve', requireAdmin, async (req, res) => {
   const db = getDb()
   const id = Number(req.params.id)
   const note = String(req.body?.note || '').trim()
-  await db.run(`UPDATE artworks SET status='approved', review_note=?, reviewed_at=? WHERE id=?`, [note, new Date().toISOString(), id])
+  const now = new Date().toISOString()
+
+  // 1. 获取作品信息以判断积分
+  const art = await db.get(`SELECT * FROM artworks WHERE id=?`, [id])
+  if (!art) return res.status(404).json({ ok: false })
+
+  // 2. 更新状态
+  await db.run(`UPDATE artworks SET status='approved', review_note=?, reviewed_at=? WHERE id=?`, [note, now, id])
+
+  // 3. 积分逻辑 (与 /api/artworks 保持一致)
+  if (art.source_type === 'personal' && art.uploader_uid) {
+    // 检查是否已发放过（避免重复点击导致重复加分）
+    const exists = await db.get(`SELECT 1 FROM points_ledger WHERE artwork_id=?`, [id])
+    
+    if (!exists) {
+      let points = 0
+      let pNote = ''
+      if (art.content_type === 'haruhi') { points = 120; pNote = '投稿凉宫个人作品奖励 (人工复核)' }
+      else { points = 30; pNote = '投稿其他个人作品奖励 (人工复核)' }
+
+      if (points > 0) {
+        try {
+          await db.run(
+            `INSERT INTO points_ledger(uid, artwork_id, points, note, created_at, granted_at) VALUES(?,?,?,?,?,?)`,
+            [art.uploader_uid, id, points, pNote, art.created_at, now]
+          )
+        } catch (e) {
+          console.error('Manual approval grant points failed:', e)
+        }
+      }
+    }
+  }
+
   res.json({ ok: true })
 })
+
 app.post('/api/admin/artworks/:id/reject', requireAdmin, async (req, res) => {
   const db = getDb()
   const id = Number(req.params.id)
