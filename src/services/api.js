@@ -13,7 +13,7 @@ function buildUrl(path, params) {
 
 async function request(method, path, { params, body, isForm, headers } = {}) {
   const url = buildUrl(path, params)
-  // 获取已存储的密码以用于 header
+
   const adminPw = localStorage.getItem('admin_pw')
   const authHeaders = adminPw ? { 'x-admin-password': adminPw } : {}
 
@@ -21,10 +21,10 @@ async function request(method, path, { params, body, isForm, headers } = {}) {
     method,
     credentials: 'include',
     headers: {
-      'Accept': 'application/json',
+      Accept: 'application/json',
       ...authHeaders,
-      ...(headers || {})
-    }
+      ...(headers || {}),
+    },
   }
 
   if (method !== 'GET' && method !== 'HEAD') {

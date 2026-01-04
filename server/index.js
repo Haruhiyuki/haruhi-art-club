@@ -15,18 +15,14 @@ const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data.sqlite')
 const COOKIE_NAME = 'haruhi_anon'
 const COOKIE_SIG = 'haruhi_anon_sig'
 const COOKIE_SECRET = process.env.COOKIE_SECRET || 'dev-cookie-secret-change-me'
-// 获取环境变量中的管理员密码，如果没有设置则默认禁止访问或设置一个强密码
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'CHANGE_THIS_PASSWORD_IN_ENV'
 
-// ... helper functions ...
 function b64url(buf) {
   return buf.toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
 }
-
 function sign(val) {
   return b64url(crypto.createHmac('sha256', COOKIE_SECRET).update(String(val)).digest())
 }
-
 function parseCookies(header) {
   const out = {}
   const s = String(header || '')
@@ -42,7 +38,6 @@ function parseCookies(header) {
   }
   return out
 }
-
 function setAnonCookie(res, id) {
   const sig = sign(id)
   const common = `Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`
@@ -51,17 +46,12 @@ function setAnonCookie(res, id) {
     `${COOKIE_SIG}=${encodeURIComponent(sig)}; ${common}`
   ])
 }
-
 function clampInt(v, min, max, d) {
   const n = Number(v)
   if (!Number.isFinite(n)) return d
   return Math.max(min, Math.min(max, Math.floor(n)))
 }
-
-function safeText(v) {
-  return String(v ?? '').trim()
-}
-
+function safeText(v) { return String(v ?? '').trim() }
 function safeJsonArr(s) {
   try {
     const v = JSON.parse(s || '[]')
@@ -70,12 +60,10 @@ function safeJsonArr(s) {
     return []
   }
 }
-
 function makeTagsNorm(tags) {
   const norm = (tags || []).map(t => String(t).toLowerCase()).join(' ')
   return norm ? ` ${norm} ` : ''
 }
-
 function normalizeTagsToArray(s) {
   const raw = String(s || '').trim()
   if (!raw) return []
@@ -92,7 +80,6 @@ function normalizeTagsToArray(s) {
   }
   return out
 }
-
 function parseLicenses(raw) {
   const s = String(raw || '').trim()
   if (!s) return []
@@ -103,7 +90,6 @@ function parseLicenses(raw) {
     return []
   }
 }
-
 function mapArtworkRow(r) {
   return {
     id: r.id,
@@ -128,7 +114,9 @@ function mapArtworkRow(r) {
   }
 }
 
-// ... multer setup ...
+function clampLen(s, m) { return String(s || '').slice(0, m) }
+
+// --- multer setup ---
 const uploadsDir = path.join(__dirname, 'uploads')
 fs.mkdirSync(uploadsDir, { recursive: true })
 
@@ -157,7 +145,7 @@ const uploadFields = upload.fields([
   { name: 'original', maxCount: 1 }
 ])
 
-// ... express app setup ...
+// --- express app setup ---
 const app = express()
 
 app.use((req, res, next) => {
@@ -178,7 +166,6 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '2mb' }))
 app.use(express.urlencoded({ extended: true }))
-
 app.use((req, res, next) => {
   const c = parseCookies(req.headers.cookie || '')
   let id = c[COOKIE_NAME]
@@ -193,8 +180,6 @@ app.use((req, res, next) => {
 })
 
 app.use('/api/uploads', express.static(uploadsDir))
-
-// ... Routes ...
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 
@@ -217,7 +202,7 @@ app.get('/api/points/leaderboard', async (req, res) => {
   res.json({ ok: true, data: rows })
 })
 
-// 2. 积分查询 (详情 & 历史)
+// 2. 积分查询
 app.get('/api/points/history', async (req, res) => {
   const db = getDb()
   const uid = String(req.query.uid || '').trim()
@@ -248,21 +233,28 @@ app.get('/api/creators/search', async (req, res) => {
 
   const like = `%${q}%`
   const rows = await db.all(`
-    SELECT uid, avatar_url FROM creators 
-    WHERE uid LIKE ? 
+    SELECT uid, avatar_url FROM creators
+    WHERE uid LIKE ?
     LIMIT 8
   `, [like])
 
   res.json({ ok: true, data: rows })
 })
 
-// 读取作品列表
+/**
+ * ✅ 作品列表：新增 sort 参数
+ * sort=likes  => 跨页按 like_total DESC
+ * sort=time   => created_at DESC
+ * sort=random => 按 seed 稳定随机（优先用 query.seed，没有则回退 anonId）
+ */
 app.get('/api/artworks', async (req, res) => {
   const db = getDb()
   const status = String(req.query.status || 'approved')
   const content_type = String(req.query.content_type || 'all')
   const source_type = String(req.query.source_type || 'all')
   const uploader_uid = String(req.query.uploader_uid || '').trim()
+
+  const sort = String(req.query.sort || 'time') // likes | time | random
 
   const qRaw = String(req.query.q || '').trim()
   const searchField = String(req.query.searchField || 'all')
@@ -304,9 +296,9 @@ app.get('/api/artworks', async (req, res) => {
       params.push(like)
     } else {
       where += ` AND (
-        a.title LIKE ? OR 
-        a.description LIKE ? OR 
-        a.tags_norm LIKE ? OR 
+        a.title LIKE ? OR
+        a.description LIKE ? OR
+        a.tags_norm LIKE ? OR
         a.uploader_uid LIKE ? OR
         a.uploader_name LIKE ?
       )`
@@ -318,20 +310,48 @@ app.get('/api/artworks', async (req, res) => {
   const total = Number(totalRow?.c || 0)
 
   const offset = (page - 1) * pageSize
+
+  // ✅ ORDER BY（加 id 兜底，保证跨页稳定）
+  let orderBy = `ORDER BY datetime(a.created_at) DESC, a.id DESC`
+  const orderParams = []
+  let seedUsed = null
+
+  if (sort === 'likes') {
+    orderBy = `ORDER BY COALESCE(a.like_total,0) DESC, datetime(a.created_at) DESC, a.id DESC`
+  } else if (sort === 'time') {
+    orderBy = `ORDER BY datetime(a.created_at) DESC, a.id DESC`
+  } else if (sort === 'random') {
+    // ✅ 优先使用前端传入 seed（可实现“换一批”且跨页稳定）
+    const seedQ = req.query.seed
+    if (seedQ !== undefined && seedQ !== null && String(seedQ).trim() !== '') {
+      seedUsed = clampInt(seedQ, 0, 2147483647, 0)
+    } else {
+      // 回退：对同一用户稳定随机（anonId）
+      const anonId = String(req.anonId || '0')
+      const seedBuf = crypto.createHash('sha256').update(anonId).digest()
+      seedUsed = (seedBuf.readUInt32LE(0) >>> 0) & 0x7fffffff
+    }
+    orderBy = `ORDER BY ((a.id * 1103515245 + ?) % 2147483647) ASC, a.id ASC`
+    orderParams.push(seedUsed)
+  }
+
   const rows = await db.all(
     `SELECT a.*, c.avatar_url AS uploader_avatar
      FROM artworks a
      LEFT JOIN creators c ON c.uid=a.uploader_uid
      ${where}
-     ORDER BY datetime(a.created_at) DESC
+     ${orderBy}
      LIMIT ? OFFSET ?`,
-    [...params, pageSize, offset]
+    [...params, ...orderParams, pageSize, offset]
   )
 
   res.json({
     ok: true,
     data: rows.map(mapArtworkRow),
-    total
+    total,
+    // ✅ 这两个字段不影响旧逻辑，只用于你确认“排序是否真的生效”
+    sortUsed: sort,
+    seedUsed
   })
 })
 
@@ -340,10 +360,7 @@ app.post('/api/artworks', uploadFields, async (req, res) => {
 
   const fileCompressed = req.files?.['image']?.[0]
   const fileOriginal = req.files?.['original']?.[0]
-
-  if (!fileCompressed && !fileOriginal) {
-    return res.status(400).json({ ok: false, message: '缺少图片文件' })
-  }
+  if (!fileCompressed && !fileOriginal) return res.status(400).json({ ok: false, message: '缺少图片文件' })
 
   const displayFile = fileCompressed || fileOriginal
   const originalFile = fileOriginal || fileCompressed
@@ -362,7 +379,7 @@ app.post('/api/artworks', uploadFields, async (req, res) => {
   const imageCheck = await checkImage(displayFile.path)
 
   let finalStatus = 'approved'
-  let aiReason = []
+  const aiReason = []
 
   if (!textCheck.safe) {
     finalStatus = 'flagged'
@@ -397,10 +414,12 @@ app.post('/api/artworks', uploadFields, async (req, res) => {
 
   const result = await db.run(
     `INSERT INTO artworks
-      (title, description, uploader_name, uploader_uid, source_type, content_type, tags_json, tags_norm, origin_url, file_path, file_path_original, status, review_note, reviewed_at, created_at, licenses_json, ai_reason)
+      (title, description, uploader_name, uploader_uid, source_type, content_type, tags_json, tags_norm, origin_url,
+       file_path, file_path_original, status, review_note, reviewed_at, created_at, licenses_json, ai_reason)
      VALUES
       (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [title, description, uploader_name || null, uploader_uid || null, source_type, content_type, tags_json, tags_norm, origin_url || null, relDisplay, relOriginal, finalStatus, review_note, reviewed_at, created_at, licenses_json, review_note]
+    [title, description, uploader_name || null, uploader_uid || null, source_type, content_type, tags_json, tags_norm,
+      origin_url || null, relDisplay, relOriginal, finalStatus, review_note, reviewed_at, created_at, licenses_json, review_note]
   )
 
   // 积分逻辑
@@ -408,13 +427,9 @@ app.post('/api/artworks', uploadFields, async (req, res) => {
   if (finalStatus === 'approved' && source_type === 'personal' && uploader_uid) {
     let points = 0
     let note = ''
-    if (content_type === 'haruhi') {
-      points = 120
-      note = '投稿凉宫个人作品奖励'
-    } else {
-      points = 30
-      note = '投稿其他个人作品奖励'
-    }
+    if (content_type === 'haruhi') { points = 120; note = '投稿凉宫个人作品奖励' }
+    else { points = 30; note = '投稿其他个人作品奖励' }
+
     if (points > 0) {
       try {
         await db.run(
@@ -489,11 +504,8 @@ app.post('/api/comments', async (req, res) => {
     [artwork_id, anonId, user_name, avatar_key, body, created_at, status, aiReason]
   )
 
-  if (status !== 'public') {
-    res.json({ ok: true, message: '评论包含敏感内容或需复核，已转入人工审核', flagged: true })
-  } else {
-    res.json({ ok: true, data: { id: r.lastID, artwork_id, user_name, avatar_key, body, like_total: 0, created_at } })
-  }
+  if (status !== 'public') res.json({ ok: true, message: '评论包含敏感内容或需复核，已转入人工审核', flagged: true })
+  else res.json({ ok: true, data: { id: r.lastID, artwork_id, user_name, avatar_key, body, like_total: 0, created_at } })
 })
 
 async function likeTarget({ db, anonId, targetType, targetId }) {
@@ -505,12 +517,19 @@ async function likeTarget({ db, anonId, targetType, targetId }) {
     const exists = await db.get(`SELECT id FROM ${table} WHERE id=?`, [targetId])
     if (!exists) { await db.exec('ROLLBACK'); return { status: 404, body: { ok: false } } }
 
-    const row = await db.get(`SELECT id, count FROM likes_daily WHERE anon_id=? AND target_type=? AND target_id=? AND day=?`, [anonId, targetType, targetId, day])
+    const row = await db.get(
+      `SELECT id, count FROM likes_daily WHERE anon_id=? AND target_type=? AND target_id=? AND day=?`,
+      [anonId, targetType, targetId, day]
+    )
     const used = Number(row?.count || 0)
     if (used >= 10) { await db.exec('ROLLBACK'); return { status: 429, body: { ok: false, message: '上限' } } }
 
     if (row) await db.run(`UPDATE likes_daily SET count=count+1, updated_at=? WHERE id=?`, [now, row.id])
-    else await db.run(`INSERT INTO likes_daily(anon_id, target_type, target_id, day, count, created_at, updated_at) VALUES(?,?,?,?,1,?,?)`, [anonId, targetType, targetId, day, now, now])
+    else await db.run(
+      `INSERT INTO likes_daily(anon_id, target_type, target_id, day, count, created_at, updated_at)
+       VALUES(?,?,?,?,1,?,?)`,
+      [anonId, targetType, targetId, day, now, now]
+    )
 
     await db.run(`UPDATE ${table} SET like_total=COALESCE(like_total,0)+1 WHERE id=?`, [targetId])
     const updated = await db.get(`SELECT like_total FROM ${table} WHERE id=?`, [targetId])
@@ -533,15 +552,12 @@ app.post('/api/likes/comment/:id', async (req, res) => {
 
 // === 管理员中间件 ===
 function requireAdmin(req, res, next) {
-  // 从环境变量获取密码，如果没有则阻止
   const expected = String(ADMIN_PASSWORD || '').trim()
   if (!expected) return res.status(500).json({ ok: false, message: 'Server configuration error' })
-
   if ((req.header('x-admin-password') || '') !== expected) return res.status(401).json({ ok: false })
   next()
 }
 
-// === 新增：管理员登录验证接口 ===
 app.post('/api/admin/verify', (req, res) => {
   const input = String(req.body.password || '').trim()
   const expected = String(ADMIN_PASSWORD || '').trim()
@@ -555,7 +571,7 @@ app.post('/api/admin/verify', (req, res) => {
   }
 })
 
-// Admin API Routes
+// Admin API（保持你原来的）
 app.get('/api/admin/pending-artworks', requireAdmin, async (req, res) => {
   const db = getDb()
   const rows = await db.all(
@@ -601,9 +617,7 @@ app.post('/api/admin/artworks/:id/status', requireAdmin, async (req, res) => {
   if (['hidden', 'approved', 'flagged'].includes(status)) {
     await db.run(`UPDATE artworks SET status=? WHERE id=?`, [status, Number(req.params.id)])
     res.json({ ok: true })
-  } else {
-    res.status(400).json({ ok: false })
-  }
+  } else res.status(400).json({ ok: false })
 })
 app.post('/api/admin/artworks/:id/update', requireAdmin, async (req, res) => {
   const db = getDb()
@@ -612,8 +626,7 @@ app.post('/api/admin/artworks/:id/update', requireAdmin, async (req, res) => {
   const tagsArr = normalizeTagsToArray(tags)
   const tags_json = JSON.stringify(tagsArr)
   const tags_norm = makeTagsNorm(tagsArr)
-  await db.run(
-    `UPDATE artworks SET title=?, description=?, tags_json=?, tags_norm=? WHERE id=?`,
+  await db.run(`UPDATE artworks SET title=?, description=?, tags_json=?, tags_norm=? WHERE id=?`,
     [title, description, tags_json, tags_norm, id]
   )
   res.json({ ok: true })
@@ -677,10 +690,13 @@ app.get('/api/admin/points-ledger', requireAdmin, async (req, res) => {
 })
 app.post('/api/admin/points/grant', requireAdmin, async (req, res) => {
   const { uid, artwork_id, points, note } = req.body
-  await getDb().run(`INSERT INTO points_ledger(uid, artwork_id, points, note, created_at, granted_at) VALUES(?,?,?,?,?,?)`, [uid, artwork_id, points, note, new Date().toISOString(), new Date().toISOString()])
+  await getDb().run(`INSERT INTO points_ledger(uid, artwork_id, points, note, created_at, granted_at) VALUES(?,?,?,?,?,?)`,
+    [uid, artwork_id, points, note, new Date().toISOString(), new Date().toISOString()]
+  )
   res.json({ ok: true })
 })
 
-function clampLen(s, m) { return String(s || '').slice(0, m) }
 await initDb(DB_PATH)
-app.listen(API_PORT, '127.0.0.1', () => { console.log(`[api] listening on http://127.0.0.1:${API_PORT}`) })
+app.listen(API_PORT, '127.0.0.1', () => {
+  console.log(`[api] listening on http://127.0.0.1:${API_PORT}`)
+})

@@ -4,10 +4,12 @@
       v-if="!activeTag && !activeAuthor"
       :content="store.content"
       :sourceMode="store.sourceMode"
+      :sortMode="store.sortMode"
       :q="store.q"
       :searchField="store.searchField"
       @update:content="v => { store.setFilters({ content: v }); reload() }"
       @update:sourceMode="v => { store.setFilters({ sourceMode: v }); reload() }"
+      @update:sortMode="v => { store.setFilters({ sortMode: v }); reload() }"
       @update:q="v => store.setFilters({ q: v })"
       @update:searchField="v => store.setFilters({ searchField: v })"
       @search="reload"
@@ -29,6 +31,9 @@
 
     <div class="statusRow">
       <div class="left">
+        <span class="muted">排序：{{ sortLabel }}</span>
+        <span class="muted">· 第 {{ store.page }} 页</span>
+        <span class="muted">· 共 {{ store.total }} 条</span>
         <span class="muted" v-if="store.usingSeed"></span>
       </div>
     </div>
@@ -60,7 +65,7 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGalleryStore } from '../stores/galleryStore.js'
 import FilterPanel from '../components/FilterPanel.vue'
@@ -75,6 +80,13 @@ const modalOpen = ref(false)
 const activeItem = ref(null)
 const activeTag = ref('')
 const activeAuthor = ref(null) // { uid, name }
+
+const sortLabel = computed(() => {
+  const m = store.sortMode
+  if (m === 'likes') return '点赞最高'
+  if (m === 'time') return '最新'
+  return '随机'
+})
 
 // --- 翻页处理 ---
 function handlePrevPage() {
@@ -94,26 +106,24 @@ function handleNextPage() {
 }
 
 // --- 响应式 PageSize 逻辑 ---
-// allowedToReload: 初始化时设为 false，防止在 onMounted 里重复触发
 function updatePageSize(allowedToReload = true) {
   const isMobile = window.innerWidth <= 768
   const targetSize = isMobile ? 8 : 12
-  
+
   if (store.limit !== targetSize) {
     store.limit = targetSize
-    // 只有非初始化阶段，尺寸变化才触发重载
     if (allowedToReload) {
       reload()
     }
   }
 }
 
-function reload(){
+function reload() {
   store.page = 1
   store.load()
 }
 
-function likeItem(it){
+function likeItem(it) {
   store.likeArtwork(it)
 }
 
@@ -121,31 +131,26 @@ function likeItem(it){
 // URL 驱动的核心逻辑
 // ---------------------------------------------------------
 
-// 1. 进入标签模式 -> 更新 URL
-function onTag(t){
+function onTag(t) {
   router.push({ query: { ...route.query, tag: t, author: undefined, artwork: undefined } })
 }
 
-// 2. 进入作者模式 -> 更新 URL
-function onAuthor(authorInfo){
+function onAuthor(authorInfo) {
   router.push({ query: { ...route.query, author: authorInfo.uid, tag: undefined, artwork: undefined } })
 }
 
-// 3. 打开详情 -> 更新 URL
-function openItem(it){
+function openItem(it) {
   router.push({ query: { ...route.query, artwork: it.id } })
 }
 
-// 4. 关闭详情 -> 更新 URL
-function closeModal(){
+function closeModal() {
   const q = { ...route.query }
   delete q.artwork
   router.push({ query: q })
 }
 
-// 5. 退出特殊模式 -> 清空相关 URL 参数
-function exitMode(){
-  router.push({ query: {} }) 
+function exitMode() {
+  router.push({ query: {} })
 }
 
 // --- 核心：将路由解析逻辑提取出来 ---
@@ -153,7 +158,7 @@ function syncStateFromRoute(q) {
   const newTag = q.tag
   const newAuthorUid = q.author
   const newArtworkId = q.artwork
-  
+
   let needsReload = false
 
   // A. 处理标签模式变化
@@ -164,7 +169,6 @@ function syncStateFromRoute(q) {
     needsReload = true
   } else if (!newTag && activeTag.value) {
     activeTag.value = ''
-    // 如果也没有作者，则回到默认搜索
     if (!newAuthorUid) {
       store.setFilters({ q: '', searchField: 'all' })
       needsReload = true
@@ -182,8 +186,8 @@ function syncStateFromRoute(q) {
   } else if (!newAuthorUid && activeAuthor.value) {
     activeAuthor.value = null
     if (!newTag) {
-       store.setFilters({ q: '', searchField: 'all' })
-       needsReload = true
+      store.setFilters({ q: '', searchField: 'all' })
+      needsReload = true
     }
   }
 
@@ -199,25 +203,22 @@ function syncStateFromRoute(q) {
     activeItem.value = null
   }
 
-  // 如果是在初始化时调用，或者参数确实变了，执行加载
-  // 注意：如果 q.q 存在 (普通搜索)，也需要设置
-  if(q.q && q.q !== store.q){
-     store.setFilters({ q: q.q })
-     needsReload = true
+  // 普通搜索参数 q
+  if (q.q && q.q !== store.q) {
+    store.setFilters({ q: q.q })
+    needsReload = true
   }
 
-  // 返回是否需要加载，供调用者判断（虽然这里大部分情况直接 reload 也行）
   return needsReload
 }
 
-// 监听路由变化 (注意：immediate: false，由 onMounted 手动触发第一次)
+// 监听路由变化
 watch(() => route.query, (newQ) => {
   const shouldLoad = syncStateFromRoute(newQ)
-  if(shouldLoad) reload()
+  if (shouldLoad) reload()
 }, { immediate: false })
 
-
-// 监听列表数据变化 (修正作者名/打开详情)
+// 监听列表数据变化（修正作者名/打开详情）
 watch(() => store.list, (list) => {
   if (!list || list.length === 0) return
 
@@ -238,42 +239,42 @@ watch(() => store.list, (list) => {
   }
 })
 
+// ✅ 修复：必须用同一个函数引用，remove 才有效
+const onResize = () => updatePageSize(true)
+
 // --- 初始化顺序修复 ---
 onMounted(() => {
-  // 1. 先确定尺寸 (更新 store.limit)，但不触发 reload
+  // 1. 先确定尺寸（不触发 reload）
   updatePageSize(false)
 
   // 2. 再根据 URL 设置 Filter
   const needsReload = syncStateFromRoute(route.query)
 
   // 3. 最后统一加载一次
-  // 如果 syncStateFromRoute 认为需要 reload，或者当前列表为空，则加载
   if (needsReload || store.list.length === 0) {
     reload()
   }
 
   // 4. 绑定监听
-  window.addEventListener('resize', () => updatePageSize(true))
+  window.addEventListener('resize', onResize)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', () => updatePageSize(true))
+  window.removeEventListener('resize', onResize)
 })
 </script>
 
 <style scoped>
-/* 样式保持不变，直接复用你之前的即可 */
 .container-card {
   max-width: 1450px;
   margin: 0 auto;
 }
 
 .statusRow{ margin:14px 0; display:flex; justify-content:space-between; align-items:center; }
-.left{ display:flex; gap:10px; align-items:center; }
+.left{ display:flex; gap:10px; align-items:center; flex-wrap: wrap; }
 .errorBox{ padding:12px; background:#fee; color:red; border-radius:8px; }
 .muted{ color:#999; font-size:12px; }
 
-/* 标签/作者模式专用样式 */
 .tag-header {
   display: flex;
   justify-content: space-between;
@@ -303,8 +304,8 @@ onUnmounted(() => {
 }
 
 .author-title::before {
-  content: '@'; 
-  color: #e9b5fd; 
+  content: '@';
+  color: #e9b5fd;
 }
 .author-title .highlight {
   color: #1a1a1a;
@@ -337,8 +338,8 @@ onUnmounted(() => {
   transform: translateX(-4px) scale(0.96);
 }
 
-.icon { 
-  font-size: 18px; 
+.icon {
+  font-size: 18px;
   line-height: 1;
 }
 
