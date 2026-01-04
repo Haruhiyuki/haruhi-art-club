@@ -13,6 +13,11 @@ export default defineConfig({
         target: 'http://127.0.0.1:15454',
         changeOrigin: true
       },
+      '/art-api': {
+        target: 'http://127.0.0.1:15454',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/art-api/, '/api')
+      },
       '/upload': {
         target: 'http://127.0.0.1:15454',
         changeOrigin: true

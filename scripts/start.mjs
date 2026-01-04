@@ -16,7 +16,7 @@ function run(cmd, args, extraEnv = {}) {
 console.log(`[start] web : http://127.0.0.1:${WEB_PORT}`)
 console.log(`[start] api : http://127.0.0.1:${SERVER_PORT}/api/health`)
 
-const server = run('node', ['--watch', 'server/index.js'], {
+const server = run('node', ['server/index.js'], {
   PORT_SERVER: String(SERVER_PORT)
 })
 

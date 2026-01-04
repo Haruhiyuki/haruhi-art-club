@@ -96,6 +96,38 @@ function clickTag(tag, item, e){
   emit('tag', tag)
   emit('tagClick', tag)
 }
+
+// --- 智能缩放逻辑 ---
+import { reactive } from 'vue'
+
+const imgStyle = reactive({})
+
+function onImgLoad(item, e) {
+  const el = e.target
+  if (!el) return
+  
+  const w = el.naturalWidth
+  const h = el.naturalHeight
+  
+  // 避免除零
+  if (!h) return 
+
+  const ratio = w / h
+  
+  // 阈值设定：
+  // 极端比例定义：更宽松一点，避免正常竖图(9:16=0.56)被裁切
+  // 取 < 0.45 (极高) 或 > 2.2 (极宽) 作为极端阈值
+  // 极端比例 -> cover (保证填满，避免主体看起来太小)
+  // 正常比例 -> contain (完整展示)
+  
+  const isExtreme = ratio < 0.42 || ratio > 2.3
+  
+  imgStyle[item.id] = {
+    objectFit: isExtreme ? 'cover' : 'contain',
+    // 统一居中，对于 contain 模式会留白，对于 cover 模式会裁切
+    objectPosition: 'center center'
+  }
+}
 </script>
 
 <template>
@@ -111,11 +143,19 @@ function clickTag(tag, item, e){
         @keydown.enter="openCard(it)"
       >
         <div class="art-card__media">
+          <!-- 背景模糊层：填补留白 -->
+          <div 
+            class="art-card__blur-bg"
+            :style="{ backgroundImage: `url(${imgSrc(it)})` }"
+          ></div>
+
           <img
             class="art-card__img"
             :src="imgSrc(it)"
             :alt="it.title || 'artwork'"
             loading="lazy"
+            :style="imgStyle[it.id] || { objectFit: 'cover' }"
+            @load="onImgLoad(it, $event)"
           />
         </div>
 
@@ -349,6 +389,19 @@ function clickTag(tag, item, e){
   display: block;
   transform: scale(1.02);
   transition: transform 0.5s ease;
+  position: relative;
+  z-index: 2; /* 确保在模糊层之上 */
+}
+
+/* 模糊背景层 */
+.art-card__blur-bg {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(10px) brightness(0.9);
+  transform: scale(1.1); /* 防止模糊边缘露白 */
+  z-index: 1;
 }
 
 .art-card:hover .art-card__img {
