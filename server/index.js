@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import express from 'express'
 import path from 'path'
 import crypto from 'crypto'
@@ -316,6 +317,9 @@ app.get('/api/artworks', async (req, res) => {
   const orderParams = []
   let seedUsed = null
 
+  // [Debug] Log sort params
+  console.log(`[API] artworks list: sort=${sort}, seedQ=${req.query.seed}`)
+
   if (sort === 'likes') {
     orderBy = `ORDER BY COALESCE(a.like_total,0) DESC, datetime(a.created_at) DESC, a.id DESC`
   } else if (sort === 'time') {
@@ -331,14 +335,15 @@ app.get('/api/artworks', async (req, res) => {
       const seedBuf = crypto.createHash('sha256').update(anonId).digest()
       seedUsed = (seedBuf.readUInt32LE(0) >>> 0) & 0x7fffffff
     }
-    orderBy = `ORDER BY ((a.id * 1103515245 + ?) % 2147483647) ASC, a.id ASC`
+    // 改进的伪随机排序公式: (id + seed) 的 hash
+    orderBy = `ORDER BY ((a.id + ?) * 1103515245) % 2147483647 ASC, a.id ASC`
     orderParams.push(seedUsed)
   }
 
   const rows = await db.all(
     `SELECT a.*, c.avatar_url AS uploader_avatar
      FROM artworks a
-     LEFT JOIN creators c ON c.uid=a.uploader_uid
+     LEFT JOIN creators c ON a.uploader_uid = c.uid
      ${where}
      ${orderBy}
      LIMIT ? OFFSET ?`,
@@ -351,7 +356,8 @@ app.get('/api/artworks', async (req, res) => {
     total,
     // ✅ 这两个字段不影响旧逻辑，只用于你确认“排序是否真的生效”
     sortUsed: sort,
-    seedUsed
+    seedUsed,
+    debugId: Date.now() // 方便前端确认为最新响应
   })
 })
 

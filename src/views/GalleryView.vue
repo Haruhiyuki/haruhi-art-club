@@ -29,19 +29,11 @@
       </button>
     </div>
 
-    <div class="statusRow">
-      <div class="left">
-        <span class="muted">排序：{{ sortLabel }}</span>
-        <span class="muted">· 第 {{ store.page }} 页</span>
-        <span class="muted">· 共 {{ store.total }} 条</span>
-        <span class="muted" v-if="store.usingSeed"></span>
-      </div>
-    </div>
-
     <div v-if="store.error" class="errorBox">{{ store.error }}</div>
 
     <ArtworkGrid
       v-else
+      class="main-grid"
       :items="store.list"
       :page="store.page"
       :hasMore="store.hasMore"
@@ -53,6 +45,15 @@
       @prevPage="handlePrevPage"
       @nextPage="handleNextPage"
     />
+
+    <div class="statusRow footer-mode">
+      <div class="left">
+        <span class="muted">排序：{{ sortLabel }}</span>
+        <span class="muted">· 第 {{ store.page }} 页</span>
+        <span class="muted">· 共 {{ store.total }} 条</span>
+        <span class="muted" v-if="store.usingSeed"></span>
+      </div>
+    </div>
 
     <ArtworkModal
       :model-value="modalOpen"
@@ -268,9 +269,13 @@ onUnmounted(() => {
 .container-card {
   max-width: 1450px;
   margin: 0 auto;
+  position: relative;
 }
 
-.statusRow{ margin:14px 0; display:flex; justify-content:space-between; align-items:center; }
+.main-grid { margin-top: 90px; }
+
+.statusRow { margin:14px 0; display:flex; justify-content:space-between; align-items:center; }
+.statusRow.footer-mode { margin-top: 30px; border-top: 1px dashed rgba(0,0,0,0.08); padding-top: 20px; }
 .left{ display:flex; gap:10px; align-items:center; flex-wrap: wrap; }
 .errorBox{ padding:12px; background:#fee; color:red; border-radius:8px; }
 .muted{ color:#999; font-size:12px; }

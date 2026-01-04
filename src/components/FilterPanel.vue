@@ -89,20 +89,20 @@
           <div
             class="slider-bg"
             :class="{
-              'pos-0': sortMode === 'random',
+              'pos-0': sortMode === 'time',
               'pos-1': sortMode === 'likes',
-              'pos-2': sortMode === 'time'
+              'pos-2': sortMode === 'random'
             }"
           ></div>
 
           <button
             class="toggle-item sort-item"
-            :class="{ active: sortMode === 'random' }"
+            :class="{ active: sortMode === 'time' }"
             type="button"
             data-sfx="click"
-            @click="emit('update:sortMode', 'random')"
+            @click="emit('update:sortMode', 'time')"
           >
-            随机
+            最新
           </button>
           <button
             class="toggle-item sort-item"
@@ -115,12 +115,12 @@
           </button>
           <button
             class="toggle-item sort-item"
-            :class="{ active: sortMode === 'time' }"
+            :class="{ active: sortMode === 'random' }"
             type="button"
             data-sfx="click"
-            @click="emit('update:sortMode', 'time')"
+            @click="emit('update:sortMode', 'random')"
           >
-            最新
+            随机
           </button>
         </div>
       </div>
@@ -212,7 +212,7 @@ function onSortTrackClick(e) {
   const x = (e.clientX ?? 0) - rect.left
   const ratio = rect.width > 0 ? (x / rect.width) : 0
   const idx = Math.max(0, Math.min(2, Math.floor(ratio * 3)))
-  const modes = ['random', 'likes', 'time']
+  const modes = ['time', 'likes', 'random']
   emit('update:sortMode', modes[idx])
 }
 </script>
@@ -299,12 +299,12 @@ function onSortTrackClick(e) {
 .content-track .slider-bg.pos-0 { transform: translateX(0%); }
 .content-track .slider-bg.pos-1 { transform: translateX(100%); }
 
-.source-track .slider-bg { width: calc(33.333% - 5px); left: 4px; }
+.source-track .slider-bg { width: calc((100% - 8px) / 3); left: 4px; }
 .source-track .slider-bg.pos-0 { transform: translateX(0%); }
 .source-track .slider-bg.pos-1 { transform: translateX(100%); }
 .source-track .slider-bg.pos-2 { transform: translateX(200%); }
 
-.sort-track .slider-bg { width: calc(33.333% - 5px); left: 4px; }
+.sort-track .slider-bg { width: calc((100% - 8px) / 3); left: 4px; }
 .sort-track .slider-bg.pos-0 { transform: translateX(0%); }
 .sort-track .slider-bg.pos-1 { transform: translateX(100%); }
 .sort-track .slider-bg.pos-2 { transform: translateX(200%); }
@@ -462,8 +462,8 @@ function onSortTrackClick(e) {
 
   .slider-bg { top: 2px; bottom: 2px; }
   .content-track .slider-bg { width: calc(50% - 2px); left: 2px; }
-  .source-track .slider-bg { width: calc(33.333% - 2.66px); left: 2px; }
-  .sort-track .slider-bg { width: calc(33.333% - 2.66px); left: 2px; }
+  .source-track .slider-bg { width: calc((100% - 4px) / 3); left: 2px; }
+  .sort-track .slider-bg { width: calc((100% - 4px) / 3); left: 2px; }
 
   .mascot-img {
     height: 100px;

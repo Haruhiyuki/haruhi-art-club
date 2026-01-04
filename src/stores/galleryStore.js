@@ -88,8 +88,8 @@ export const useGalleryStore = defineStore('gallery', {
     content: 'haruhi',
     sourceMode: 'all', // all | personal | network （balanced 若存在会按 all 处理）
 
-    sortMode: 'random', // random | likes | time
-    randomSeed: Number(localStorage.getItem('gallery_rand_seed') || 0) || ((Date.now() & 0x7fffffff) >>> 0),
+    sortMode: 'time', // random | likes | time
+    randomSeed: ((Date.now() & 0x7fffffff) >>> 0),
 
     q: '',
     searchField: 'all',
@@ -117,7 +117,6 @@ export const useGalleryStore = defineStore('gallery', {
         if (patch.sortMode === 'random') {
           // 切回随机时也可刷新 seed，让用户感觉“换一批”
           this.randomSeed = ((Date.now() & 0x7fffffff) >>> 0)
-          localStorage.setItem('gallery_rand_seed', String(this.randomSeed))
         }
       }
       if (patch.q !== undefined) this.q = patch.q
@@ -140,8 +139,11 @@ export const useGalleryStore = defineStore('gallery', {
           q: this.q,
           searchField: this.searchField,
           page: this.page,
+          page: this.page,
           pageSize: this.limit
         }
+
+        console.log('[GalleryStore] loading...', { sort: this.sortMode, seed: this.randomSeed, reqId: currentReqId })
 
         // balanced 若存在，后端会当 all；这里也直接不传 source_type，保证全局排序正确
         if (this.sourceMode === 'personal' || this.sourceMode === 'network') {
