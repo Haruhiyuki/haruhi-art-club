@@ -39,9 +39,6 @@
 
           <b>上传时间</b>
           <div>{{ art?.created_at ? new Date(art.created_at).toLocaleString() : '-' }}</div>
-          
-          <b>规格</b>
-          <div>{{ isWebP ? 'WebP (已压缩)' : 'Original' }}</div>
 
           <b>作品描述</b>
           <div class="small-muted">{{ art?.description || '（无）' }}</div>

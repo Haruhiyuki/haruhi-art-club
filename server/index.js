@@ -379,7 +379,7 @@ app.post('/api/artworks', uploadFields, async (req, res) => {
   const content_type = safeText(req.body?.content_type) || 'haruhi'
   const origin_url = safeText(req.body?.origin_url)
 
-  if (!title || !description) return res.status(400).json({ ok: false, message: '作品名称与描述为必填' })
+  if (!title) return res.status(400).json({ ok: false, message: '作品名称为必填' })
 
   const textCheck = await checkText(`${title}\n${description}`)
   const imageCheck = await checkImage(displayFile.path)

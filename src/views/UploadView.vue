@@ -29,8 +29,8 @@
         </div>
 
         <div class="field">
-          <div class="label">作品描述（必填）</div>
-          <textarea class="textarea" v-model="description" placeholder="请描述作品内容、创作思路或来源说明…" required></textarea>
+          <div class="label">作品描述（选填）</div>
+          <textarea class="textarea" v-model="description" placeholder="请描述作品内容、创作思路或来源说明…"></textarea>
         </div>
       </div>
 
@@ -273,8 +273,8 @@ async function submit(){
   isError.value = false
   
   if(!file.value){ msg.value = '请选择图片文件'; isError.value = true; return }
-  if(!title.value.trim() || !description.value.trim()){
-    msg.value = '作品名称与描述为必填'; isError.value = true;
+  if(!title.value.trim()){
+    msg.value = '作品名称为必填'; isError.value = true;
     return
   }
 
