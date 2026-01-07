@@ -91,7 +91,25 @@ function parseLicenses(raw) {
     return []
   }
 }
+
+// 映射函数：处理单图和多图逻辑
 function mapArtworkRow(r) {
+  let images = safeJsonArr(r.images_json)
+  
+  // 兼容旧数据：如果 images_json 为空，构造一个包含单图的数组
+  if (images.length === 0 && r.file_path) {
+    images = [{
+      image_url: `uploads/${r.file_path}`,
+      original_url: r.file_path_original ? `uploads/${r.file_path_original}` : `uploads/${r.file_path}`
+    }]
+  } else {
+    // 处理多图路径
+    images = images.map(img => ({
+      image_url: img.path ? `uploads/${img.path}` : '',
+      original_url: img.original ? `uploads/${img.original}` : (img.path ? `uploads/${img.path}` : '')
+    }))
+  }
+
   return {
     id: r.id,
     title: r.title,
@@ -109,8 +127,10 @@ function mapArtworkRow(r) {
     review_note: r.review_note || '',
     status: r.status,
     like_total: Number(r.like_total || 0),
-    image_url: r.file_path ? `uploads/${r.file_path}` : '',
-    original_url: r.file_path_original ? `uploads/${r.file_path_original}` : (r.file_path ? `uploads/${r.file_path}` : ''),
+    // 封面图：优先取 file_path
+    image_url: r.file_path ? `uploads/${r.file_path}` : (images[0]?.image_url || ''),
+    original_url: r.file_path_original ? `uploads/${r.file_path_original}` : (images[0]?.original_url || ''),
+    images: images, // 新增：多图数组
     ai_reason: r.ai_reason || ''
   }
 }
@@ -141,9 +161,10 @@ const upload = multer({
   limits: { fileSize: 24 * 1024 * 1024 }
 })
 
+// 修改：允许上传多张图片，最大20张
 const uploadFields = upload.fields([
-  { name: 'image', maxCount: 1 },
-  { name: 'original', maxCount: 1 }
+  { name: 'images', maxCount: 20 },
+  { name: 'originals', maxCount: 20 }
 ])
 
 // --- express app setup ---
@@ -242,12 +263,6 @@ app.get('/api/creators/search', async (req, res) => {
   res.json({ ok: true, data: rows })
 })
 
-/**
- * ✅ 作品列表：新增 sort 参数
- * sort=likes  => 跨页按 like_total DESC
- * sort=time   => created_at DESC
- * sort=random => 按 seed 稳定随机（优先用 query.seed，没有则回退 anonId）
- */
 app.get('/api/artworks', async (req, res) => {
   const db = getDb()
   const status = String(req.query.status || 'approved')
@@ -312,30 +327,23 @@ app.get('/api/artworks', async (req, res) => {
 
   const offset = (page - 1) * pageSize
 
-  // ✅ ORDER BY（加 id 兜底，保证跨页稳定）
   let orderBy = `ORDER BY datetime(a.created_at) DESC, a.id DESC`
   const orderParams = []
   let seedUsed = null
-
-  // [Debug] Log sort params
-  console.log(`[API] artworks list: sort=${sort}, seedQ=${req.query.seed}`)
 
   if (sort === 'likes') {
     orderBy = `ORDER BY COALESCE(a.like_total,0) DESC, datetime(a.created_at) DESC, a.id DESC`
   } else if (sort === 'time') {
     orderBy = `ORDER BY datetime(a.created_at) DESC, a.id DESC`
   } else if (sort === 'random') {
-    // ✅ 优先使用前端传入 seed（可实现“换一批”且跨页稳定）
     const seedQ = req.query.seed
     if (seedQ !== undefined && seedQ !== null && String(seedQ).trim() !== '') {
       seedUsed = clampInt(seedQ, 0, 2147483647, 0)
     } else {
-      // 回退：对同一用户稳定随机（anonId）
       const anonId = String(req.anonId || '0')
       const seedBuf = crypto.createHash('sha256').update(anonId).digest()
       seedUsed = (seedBuf.readUInt32LE(0) >>> 0) & 0x7fffffff
     }
-    // 改进的伪随机排序公式: (id + seed) 的 hash
     orderBy = `ORDER BY ((a.id + ?) * 1103515245) % 2147483647 ASC, a.id ASC`
     orderParams.push(seedUsed)
   }
@@ -354,22 +362,49 @@ app.get('/api/artworks', async (req, res) => {
     ok: true,
     data: rows.map(mapArtworkRow),
     total,
-    // ✅ 这两个字段不影响旧逻辑，只用于你确认“排序是否真的生效”
     sortUsed: sort,
     seedUsed,
-    debugId: Date.now() // 方便前端确认为最新响应
+    debugId: Date.now()
   })
 })
 
 app.post('/api/artworks', uploadFields, async (req, res) => {
   const db = getDb()
 
-  const fileCompressed = req.files?.['image']?.[0]
-  const fileOriginal = req.files?.['original']?.[0]
-  if (!fileCompressed && !fileOriginal) return res.status(400).json({ ok: false, message: '缺少图片文件' })
+  // --- 多图处理逻辑 ---
+  // 前端应发送 images[] 和 originals[] 两个数组，顺序对应
+  const displayFiles = req.files?.['images'] || []
+  const originalFiles = req.files?.['originals'] || []
 
-  const displayFile = fileCompressed || fileOriginal
-  const originalFile = fileOriginal || fileCompressed
+  // 兼容旧逻辑：如果字段名是 image/original (单数)，multer 也会放入数组
+  // 但我们这里主要处理复数情况
+  
+  if (displayFiles.length === 0) {
+    return res.status(400).json({ ok: false, message: '缺少图片文件' })
+  }
+
+  // 构建图片列表
+  const imagesList = []
+  for(let i = 0; i < displayFiles.length; i++) {
+    const disp = displayFiles[i]
+    // 尝试找对应的 original，如果没有则用 display 本身
+    const orig = originalFiles[i] || disp
+    
+    // 存储相对路径
+    const relDisp = path.relative(uploadsDir, disp.path).replace(/\\/g, '/')
+    const relOrig = path.relative(uploadsDir, orig.path).replace(/\\/g, '/')
+    
+    imagesList.push({
+      path: relDisp,
+      original: relOrig
+    })
+  }
+
+  // 封面图：取列表第一张
+  const coverImage = imagesList[0]
+  const imagesJson = JSON.stringify(imagesList)
+
+  // ------------------
 
   const title = safeText(req.body?.title)
   const description = safeText(req.body?.description)
@@ -381,8 +416,9 @@ app.post('/api/artworks', uploadFields, async (req, res) => {
 
   if (!title) return res.status(400).json({ ok: false, message: '作品名称为必填' })
 
+  // AI 审核逻辑 (只审核封面图和文本，节省 token)
   const textCheck = await checkText(`${title}\n${description}`)
-  const imageCheck = await checkImage(displayFile.path)
+  const imageCheck = await checkImage(path.join(uploadsDir, coverImage.path))
 
   let finalStatus = 'approved'
   const aiReason = []
@@ -398,7 +434,7 @@ app.post('/api/artworks', uploadFields, async (req, res) => {
   if (finalStatus !== 'flagged') {
     if (!imageCheck.safe) {
       finalStatus = 'flagged'
-      aiReason.push(`图片: ${imageCheck.reason}`)
+      aiReason.push(`封面图: ${imageCheck.reason}`)
     } else if (imageCheck.reason === 'AI_API_ERROR' || imageCheck.reason === 'AI_OFFLINE') {
       if (finalStatus === 'approved') finalStatus = 'pending'
       aiReason.push('AI视觉服务异常')
@@ -415,20 +451,16 @@ app.post('/api/artworks', uploadFields, async (req, res) => {
   const review_note = aiReason.join('; ')
   const reviewed_at = finalStatus === 'approved' ? created_at : null
 
-  const relDisplay = path.relative(uploadsDir, displayFile.path).replace(/\\/g, '/')
-  const relOriginal = path.relative(uploadsDir, originalFile.path).replace(/\\/g, '/')
-
   const result = await db.run(
     `INSERT INTO artworks
       (title, description, uploader_name, uploader_uid, source_type, content_type, tags_json, tags_norm, origin_url,
-       file_path, file_path_original, status, review_note, reviewed_at, created_at, licenses_json, ai_reason)
+       file_path, file_path_original, status, review_note, reviewed_at, created_at, licenses_json, ai_reason, images_json)
      VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [title, description, uploader_name || null, uploader_uid || null, source_type, content_type, tags_json, tags_norm,
-      origin_url || null, relDisplay, relOriginal, finalStatus, review_note, reviewed_at, created_at, licenses_json, review_note]
+      origin_url || null, coverImage.path, coverImage.original, finalStatus, review_note, reviewed_at, created_at, licenses_json, review_note, imagesJson]
   )
 
-  // 积分逻辑
   let pointsAdded = false
   if (finalStatus === 'approved' && source_type === 'personal' && uploader_uid) {
     let points = 0
@@ -567,9 +599,7 @@ function requireAdmin(req, res, next) {
 app.post('/api/admin/verify', (req, res) => {
   const input = String(req.body.password || '').trim()
   const expected = String(ADMIN_PASSWORD || '').trim()
-
   if (!expected) return res.status(500).json({ ok: false, message: 'Server admin password not configured' })
-
   if (input === expected) {
     res.json({ ok: true })
   } else {
@@ -603,31 +633,21 @@ app.get('/api/admin/audit-history', requireAdmin, async (req, res) => {
   res.json({ ok: true, data: rows.map(mapArtworkRow) })
 })
 
-// ✅ UPDATE: 审核通过时自动发放积分（修正逻辑：凉宫+120 / 其他+30）
 app.post('/api/admin/artworks/:id/approve', requireAdmin, async (req, res) => {
   const db = getDb()
   const id = Number(req.params.id)
   const note = String(req.body?.note || '').trim()
   const now = new Date().toISOString()
-
-  // 1. 获取作品信息以判断积分
   const art = await db.get(`SELECT * FROM artworks WHERE id=?`, [id])
   if (!art) return res.status(404).json({ ok: false })
-
-  // 2. 更新状态
   await db.run(`UPDATE artworks SET status='approved', review_note=?, reviewed_at=? WHERE id=?`, [note, now, id])
-
-  // 3. 积分逻辑 (与 /api/artworks 保持一致)
   if (art.source_type === 'personal' && art.uploader_uid) {
-    // 检查是否已发放过（避免重复点击导致重复加分）
     const exists = await db.get(`SELECT 1 FROM points_ledger WHERE artwork_id=?`, [id])
-    
     if (!exists) {
       let points = 0
       let pNote = ''
       if (art.content_type === 'haruhi') { points = 120; pNote = '投稿凉宫个人作品奖励 (人工复核)' }
       else { points = 30; pNote = '投稿其他个人作品奖励 (人工复核)' }
-
       if (points > 0) {
         try {
           await db.run(
@@ -640,7 +660,6 @@ app.post('/api/admin/artworks/:id/approve', requireAdmin, async (req, res) => {
       }
     }
   }
-
   res.json({ ok: true })
 })
 
@@ -674,16 +693,26 @@ app.post('/api/admin/artworks/:id/update', requireAdmin, async (req, res) => {
 app.delete('/api/admin/artworks/:id', requireAdmin, async (req, res) => {
   const db = getDb()
   const id = Number(req.params.id)
-  const row = await db.get(`SELECT file_path, file_path_original FROM artworks WHERE id=?`, [id])
+  const row = await db.get(`SELECT file_path, file_path_original, images_json FROM artworks WHERE id=?`, [id])
   if (row) {
-    if (row.file_path) {
-      const p = path.join(uploadsDir, row.file_path)
+    // 删除所有关联文件
+    const filesToDelete = []
+    if (row.file_path) filesToDelete.push(row.file_path)
+    if (row.file_path_original) filesToDelete.push(row.file_path_original)
+    
+    // 解析 JSON 删除多图
+    try {
+      const imgs = JSON.parse(row.images_json || '[]')
+      imgs.forEach(img => {
+        if(img.path) filesToDelete.push(img.path)
+        if(img.original) filesToDelete.push(img.original)
+      })
+    } catch {}
+
+    filesToDelete.forEach(f => {
+      const p = path.join(uploadsDir, f)
       if (fs.existsSync(p)) try { fs.unlinkSync(p) } catch { }
-    }
-    if (row.file_path_original && row.file_path_original !== row.file_path) {
-      const p = path.join(uploadsDir, row.file_path_original)
-      if (fs.existsSync(p)) try { fs.unlinkSync(p) } catch { }
-    }
+    })
   }
   await db.run(`DELETE FROM artworks WHERE id=?`, [id])
   await db.run(`DELETE FROM comments WHERE artwork_id=?`, [id])

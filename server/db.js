@@ -51,7 +51,8 @@ export async function initDb(dbPath){
       reviewed_at TEXT,
       created_at TEXT,
       licenses_json TEXT,
-      like_total INTEGER DEFAULT 0
+      like_total INTEGER DEFAULT 0,
+      images_json TEXT -- 新增：存储多张图片的 JSON 数组
     );
   `)
 
@@ -110,8 +111,10 @@ export async function initDb(dbPath){
   await ensureColumn(_db, 'artworks', 'licenses_json', 'licenses_json TEXT')
   await ensureColumn(_db, 'artworks', 'like_total', 'like_total INTEGER DEFAULT 0')
   await ensureColumn(_db, 'artworks', 'reviewed_at', 'reviewed_at TEXT')
-  // 新增：原图路径字段
   await ensureColumn(_db, 'artworks', 'file_path_original', 'file_path_original TEXT')
+  
+  // 新增：多图存储字段
+  await ensureColumn(_db, 'artworks', 'images_json', 'images_json TEXT')
 
   await ensureColumn(_db, 'comments', 'anon_id', 'anon_id TEXT')
   await ensureColumn(_db, 'comments', 'like_total', 'like_total INTEGER DEFAULT 0')

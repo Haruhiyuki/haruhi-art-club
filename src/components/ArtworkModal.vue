@@ -5,32 +5,51 @@
       <div class="deco-vine"></div>
       <div class="deco-flower"></div>
 
-      <!-- 
-        图片展示区域 
-        ref="mediaContainer" 用于计算边界
-        动态类 is-mobile-expanded 控制移动端全屏模式
-      -->
+      <!-- 图片展示区域 -->
       <div 
         ref="mediaContainer"
         class="modal__media" 
         :class="{ 'is-mobile-expanded': isMobileExpanded }"
         @wheel.prevent="handleWheel"
+        @touchstart="handleTouchStart"
+        @touchmove="handleTouchMove"
+        @touchend="handleTouchEnd"
       >
-        <!-- 图片本体：绑定动态样式 transform -->
-        <img 
-          :src="imgSrc" 
-          :alt="art?.title || 'artwork'" 
-          :style="imageTransformStyle"
-          class="zoomable-image"
-          draggable="false"
-          @mousedown="startDrag"
-          @touchstart="handleTouchStart"
-          @touchmove="handleTouchMove"
-          @touchend="handleTouchEnd"
-          @click="handleImageClick"
-        />
+        <!-- 图片本体：增加 transition 用于切换动画 -->
+        <transition :name="slideDirection">
+          <img 
+            :key="currentIndex"
+            :src="currentImgSrc" 
+            :alt="art?.title || 'artwork'" 
+            :style="imageTransformStyle"
+            class="zoomable-image"
+            draggable="false"
+            @mousedown="startDrag"
+            @click="handleImageClick"
+          />
+        </transition>
 
-        <!-- 桌面端：缩放控制栏 (移动端全屏时不显示此栏，依靠手势) -->
+        <!-- 悬浮导航箭头 (仅当有多张图片且未放大/全屏时显示) -->
+        <!-- 移动端通过滑动切换，这里也可以保留箭头但要在 CSS 中处理 hover 问题 -->
+        <div v-if="images.length > 1 && !isMobileExpanded" class="gallery-nav prev" @click.stop="prevImage" title="上一张">
+          <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div v-if="images.length > 1 && !isMobileExpanded" class="gallery-nav next" @click.stop="nextImage" title="下一张">
+          <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+
+        <!-- 底部圆点指示器 -->
+        <div v-if="images.length > 1 && !isMobileExpanded" class="gallery-dots">
+          <span 
+            v-for="(img, idx) in images" 
+            :key="idx"
+            class="dot"
+            :class="{ active: idx === currentIndex }"
+            @click.stop="gotoImage(idx)"
+          ></span>
+        </div>
+
+        <!-- 桌面端：缩放控制栏 -->
         <div class="zoom-controls" v-if="!isMobileExpanded" @click.stop>
           <button class="zoom-btn" @click="zoomOut" title="缩小" type="button">−</button>
           <span class="zoom-text">{{ Math.round(scale * 100) }}%</span>
@@ -40,6 +59,7 @@
 
         <!-- 移动端全屏模式下的提示/关闭按钮 -->
         <div v-if="isMobileExpanded" class="mobile-close-hint">
+          <span v-if="images.length > 1">{{ currentIndex + 1 }} / {{ images.length }} · </span>
           再次点击图片收起
         </div>
       </div>
@@ -48,10 +68,10 @@
         <div class="modal__head">
           <h2>{{ art?.title }}</h2>
           <div class="actions">
-            <!-- 下载按钮：绑定动态文件名 -->
+            <!-- 下载按钮：下载当前查看的图片 -->
             <a 
-              v-if="originalUrl" 
-              :href="originalUrl" 
+              v-if="currentOriginalUrl" 
+              :href="currentOriginalUrl" 
               :download="downloadFilename"
               class="icon-btn download-btn" 
               title="下载原图"
@@ -173,7 +193,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { api } from '../services/api.js'
 
 const props = defineProps({
@@ -195,17 +215,69 @@ const visible = computed(() => {
 })
 
 const art = computed(() => props.item || props.artwork || null)
-const imgSrc = computed(() => {
+
+// --- 画廊多图逻辑 ---
+const currentIndex = ref(0)
+const slideDirection = ref('fade') // 'slide-left', 'slide-right'
+
+// 获取图片列表，兼容单图数据
+const images = computed(() => {
   const a = art.value
-  if(!a) return ''
-  return a.image_url || a.imageUrl || a.url || ''
+  if (!a) return []
+  if (Array.isArray(a.images) && a.images.length > 0) return a.images
+  // 兼容旧数据
+  return [{
+    image_url: a.image_url || a.imageUrl || a.url || '',
+    original_url: a.original_url || a.originalUrl || a.url || ''
+  }]
 })
-const originalUrl = computed(() => art.value?.original_url || art.value?.originalUrl || art.value?.url || '')
+
+const currentImgSrc = computed(() => images.value[currentIndex.value]?.image_url || '')
+const currentOriginalUrl = computed(() => images.value[currentIndex.value]?.original_url || '')
+
+// 切换图片
+function nextImage() {
+  if (images.value.length <= 1) return
+  slideDirection.value = 'slide-left' // 向左滑
+  if (currentIndex.value < images.value.length - 1) {
+    currentIndex.value++
+  } else {
+    currentIndex.value = 0 // 循环
+  }
+  resetZoom()
+}
+
+function prevImage() {
+  if (images.value.length <= 1) return
+  slideDirection.value = 'slide-right' // 向右滑
+  if (currentIndex.value > 0) {
+    currentIndex.value--
+  } else {
+    currentIndex.value = images.value.length - 1
+  }
+  resetZoom()
+}
+
+function gotoImage(idx) {
+  slideDirection.value = idx > currentIndex.value ? 'slide-left' : 'slide-right'
+  currentIndex.value = idx
+  resetZoom()
+}
+
+// 监听 item 变化，重置 index
+watch(art, () => {
+  currentIndex.value = 0
+  resetZoom()
+})
 
 // 生成下载文件名
 const downloadFilename = computed(() => {
   const a = art.value
   if(!a) return 'artwork.jpg'
+  
+  // 添加序号后缀
+  const idxStr = images.value.length > 1 ? `_${currentIndex.value + 1}` : ''
+  
   let dateStr = '00000000'
   if(a.created_at) {
     const d = new Date(a.created_at)
@@ -214,9 +286,9 @@ const downloadFilename = computed(() => {
   let author = (a.uploader_name || a.uploader_uid || '匿名').trim()
   let title = (a.title || '作品').trim()
   const safe = (s) => String(s).replace(/[\\/:*?"<>|]/g, '_').trim()
-  const baseName = `${dateStr}-${safe(author)}-${safe(title)}`
+  const baseName = `${dateStr}-${safe(author)}-${safe(title)}${idxStr}`
   let ext = 'jpg'
-  const url = originalUrl.value
+  const url = currentOriginalUrl.value
   if(url){
     const cleanUrl = url.split(/[?#]/)[0]
     const parts = cleanUrl.split('.')
@@ -243,14 +315,20 @@ const mediaContainer = ref(null)
 // 移动端专用状态
 const isMobileExpanded = ref(false) // 是否处于全屏查看模式
 const lastTouchDistance = ref(0) // 用于双指缩放计算
-const lastTouchCenter = ref({ x: 0, y: 0 })
+const swipeOffset = ref(0) // 新增：滑动时的实时位移偏移量
 
 // 计算样式
 const imageTransformStyle = computed(() => {
+  // 如果正在拖拽或者正在滑动，移除 transition 以保证跟手
+  const hasTransition = !isDragging.value && Math.abs(swipeOffset.value) === 0
+  
+  // 最终的 X 轴偏移是：缩放平移量 + 滑动偏移量
+  const finalX = translateX.value + swipeOffset.value
+  
   return {
-    transform: `translate(${translateX.value}px, ${translateY.value}px) scale(${scale.value})`,
+    transform: `translate(${finalX}px, ${translateY.value}px) scale(${scale.value})`,
     cursor: isDragging.value ? 'grabbing' : (scale.value > 1 ? 'grab' : 'default'),
-    transition: isDragging.value ? 'none' : 'transform 0.1s linear' // 拖动时移除过渡以保证跟手
+    transition: hasTransition ? 'transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none'
   }
 })
 
@@ -259,6 +337,7 @@ function resetZoom() {
   scale.value = 1
   translateX.value = 0
   translateY.value = 0
+  swipeOffset.value = 0
 }
 
 function zoomIn() {
@@ -327,30 +406,23 @@ function stopDrag() {
   window.removeEventListener('mouseup', stopDrag)
 }
 
-// --- 移动端手势逻辑 (点击、双指) ---
+// --- 移动端手势逻辑 (点击、双指、滑动切换) ---
 
-// 计算两点距离
-function getDistance(touch1, touch2) {
-  const dx = touch1.clientX - touch2.clientX
-  const dy = touch1.clientY - touch2.clientY
-  return Math.hypot(dx, dy)
-}
+let touchStartX = 0
+let touchStartY = 0
+let isSwiping = false // 标记是否判定为滑动
 
 function handleImageClick(e) {
-  // 仅在移动端尺寸检测有效，或简单的UA判断
-  // 这里简化：如果当前不是Expanded状态，且是Touch触发的click（通常），则展开
-  // 为了更好的体验，我们假设宽度小于800px视为移动端
   const isMobile = window.innerWidth <= 800
-  
+  // 如果正在滑动中，不触发点击
+  if (isSwiping || Math.abs(swipeOffset.value) > 5) return
+
   if (isMobile) {
+    // 移动端：直接切换全屏模式
     if (!isMobileExpanded.value) {
-      // 进入全屏模式
       isMobileExpanded.value = true
-      // 可以在这里重置缩放，或者保持
       resetZoom()
     } else {
-      // 已在全屏模式，如果不在拖拽/缩放中，则点击关闭
-      // 这里由 click 事件触发，说明刚才没有进行复杂的 pinch/drag
       isMobileExpanded.value = false
       resetZoom()
     }
@@ -361,9 +433,14 @@ function handleTouchStart(e) {
   if (e.touches.length === 2) {
     // 双指：开始缩放
     isDragging.value = false // 此时优先缩放
-    lastTouchDistance.value = getDistance(e.touches[0], e.touches[1])
+    lastTouchDistance.value = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY)
   } else if (e.touches.length === 1) {
-    // 单指：可能是点击，也可能是拖拽
+    touchStartX = e.touches[0].clientX
+    touchStartY = e.touches[0].clientY
+    isSwiping = false
+    swipeOffset.value = 0
+    
+    // 单指：如果已放大，准备拖拽
     if (scale.value > 1 || isMobileExpanded.value) {
       startDrag(e)
     }
@@ -374,18 +451,38 @@ function handleTouchMove(e) {
   if (e.touches.length === 2) {
     // 双指缩放逻辑
     e.preventDefault() // 防止页面滚动
-    const dist = getDistance(e.touches[0], e.touches[1])
+    const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY)
     if (lastTouchDistance.value > 0) {
       const ratio = dist / lastTouchDistance.value
-      // 稍微平滑一点的缩放倍率应用
       let newScale = scale.value * ratio
       newScale = Math.max(0.5, Math.min(newScale, 5))
       scale.value = newScale
     }
     lastTouchDistance.value = dist
-  } else if (e.touches.length === 1 && isDragging.value) {
-    // 单指拖拽逻辑
-    onDrag(e)
+  } else if (e.touches.length === 1) {
+    // 单指逻辑
+    if (isDragging.value) {
+      // 放大后的拖拽
+      onDrag(e)
+    } else if (scale.value === 1 && !isMobileExpanded.value && images.value.length > 1) {
+      // 未放大状态：检测左右滑动
+      const currentX = e.touches[0].clientX
+      const currentY = e.touches[0].clientY
+      const diffX = currentX - touchStartX
+      const diffY = currentY - touchStartY
+
+      // 判定意图：横向移动大于纵向移动，且移动了一定距离
+      if (!isSwiping) {
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
+          isSwiping = true
+        }
+      }
+
+      if (isSwiping) {
+        e.preventDefault() // 阻止垂直滚动
+        swipeOffset.value = diffX // 图片跟随手指移动
+      }
+    }
   }
 }
 
@@ -393,8 +490,24 @@ function handleTouchEnd(e) {
   if (e.touches.length < 2) {
     lastTouchDistance.value = 0
   }
-  if (e.touches.length === 0) {
+  
+  if (isDragging.value) {
     isDragging.value = false
+  }
+
+  // 左右滑动结算
+  if (scale.value === 1 && !isMobileExpanded.value && isSwiping) {
+    const threshold = 80 // 滑动阈值
+    if (Math.abs(swipeOffset.value) > threshold) {
+      if (swipeOffset.value > 0) {
+        prevImage()
+      } else {
+        nextImage()
+      }
+    }
+    // 无论是否切换，都需要重置偏移量（如果未切换，CSS transition 会让它弹回去）
+    swipeOffset.value = 0
+    isSwiping = false
   }
 }
 
@@ -624,6 +737,74 @@ onMounted(() => {
   /* mix-blend-mode: multiply; */
   transform-origin: center center;
   will-change: transform;
+}
+
+/* --- 悬浮导航箭头 --- */
+.gallery-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  background: rgba(0,0,0,0.3);
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  opacity: 0;
+  z-index: 10;
+}
+.gallery-nav svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* 仅在支持 Hover 的设备上（桌面端）启用悬浮显示逻辑 */
+@media (hover: hover) {
+  .modal__media:hover .gallery-nav {
+    opacity: 1;
+  }
+}
+
+.gallery-nav:hover {
+  background: rgba(0,0,0,0.6);
+  transform: translateY(-50%) scale(1.1);
+}
+.gallery-nav.prev {
+  left: 16px;
+}
+.gallery-nav.next {
+  right: 16px;
+}
+
+/* --- 底部圆点指示器 --- */
+.gallery-dots {
+  position: absolute;
+  bottom: 60px; /* 缩放控制栏上方 */
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.dot:hover {
+  background: rgba(0,0,0,0.5);
+}
+.dot.active {
+  background: #fff;
+  box-shadow: 0 0 4px rgba(0,0,0,0.3);
+  transform: scale(1.2);
 }
 
 /* --- 缩放控制条 (桌面端) --- */
@@ -867,4 +1048,18 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(191, 162, 219, 0.2);
 }
 .heart { width: 14px; height: 14px; color: currentColor; }
+
+/* 切换动画 - 添加部分 */
+.slide-left-enter-active, .slide-left-leave-active, .slide-right-enter-active, .slide-right-leave-active, .fade-enter-active, .fade-leave-active {
+  transition: all 0.3s ease;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+.slide-left-enter-from { transform: translateX(20px); opacity: 0; }
+.slide-left-leave-to { transform: translateX(-20px); opacity: 0; }
+.slide-right-enter-from { transform: translateX(-20px); opacity: 0; }
+.slide-right-leave-to { transform: translateX(20px); opacity: 0; }
 </style>

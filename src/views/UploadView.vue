@@ -120,7 +120,6 @@
           </div>
 
           <div class="form-grid">
-            <!-- 修改：标签占满整行 (span 2) -->
             <div class="form-group" style="grid-column: span 2;">
               <label class="form-label">标签 <span class="opt">（可选）</span></label>
               <div class="input-with-action">
@@ -146,13 +145,11 @@
               </div>
             </div>
 
-            <!-- 修改：授权选项区域占满整行，内部左右分列 -->
             <transition name="fade-slide">
               <div class="form-group" v-if="sourceType==='personal'" style="grid-column: span 2;">
                 <label class="form-label">授权许可设置</label>
                 
                 <div class="license-split-layout">
-                  <!-- 左列：大众授权 -->
                   <div class="license-col">
                     <div class="license-header">对大众/网络的授权</div>
                     <p class="form-hint" style="margin-bottom: 12px;">这些授权信息将公开显示在图片详情页。</p>
@@ -165,7 +162,6 @@
                     </div>
                   </div>
 
-                  <!-- 右列：应援团授权 -->
                   <div class="license-col">
                     <div class="license-header">对应援团的特别授权 <span class="badge-private">后台可见</span></div>
                     <p class="form-hint" style="margin-bottom: 12px;">这些信息仅在后台可见，用于社团内部企划或周边制作参考。</p>
@@ -184,26 +180,53 @@
           </div>
         </section>
 
-        <!-- 区块 4: 图片上传 -->
+        <!-- 区块 4: 图片上传 (更新为多图模式) -->
         <section class="form-section upload-section">
           <div class="section-head">
             <h2 class="section-title">图片文件</h2>
-            <span class="section-desc">支持 JPG, PNG, WebP 格式</span>
+            <span class="section-desc">支持 JPG, PNG, WebP 格式。支持拖拽排序，第一张将作为封面。</span>
           </div>
 
+          <!-- 已选图片列表 -->
+          <div class="files-manager" v-if="filesList.length > 0">
+            <transition-group name="list" tag="div" class="files-grid">
+              <div 
+                v-for="(item, index) in filesList" 
+                :key="item.id" 
+                class="file-card"
+                :class="{ 'is-cover': index === 0 }"
+                draggable="true"
+                @dragstart="onDragStart($event, index)"
+                @dragover.prevent
+                @dragenter.prevent
+                @drop="onDrop($event, index)"
+              >
+                <div class="file-thumb">
+                  <img :src="item.preview" />
+                  <div class="cover-badge" v-if="index === 0">封面</div>
+                  <button type="button" class="remove-btn" @click="removeFile(index)">✕</button>
+                </div>
+                <div class="file-meta">
+                  <div class="file-name" :title="item.file.name">{{ item.file.name }}</div>
+                  <div class="file-size">{{ (item.file.size / 1024 / 1024).toFixed(2) }} MB</div>
+                </div>
+              </div>
+            </transition-group>
+          </div>
+
+          <!-- 上传区域 -->
           <div class="file-upload-wrapper">
-             <div class="file-drop-area" :class="{ 'has-file': !!file }">
-                <input class="file-input-hidden" type="file" accept="image/*" @change="onFile" required id="fileUpload" />
+             <div class="file-drop-area" :class="{ 'has-file': filesList.length > 0 }">
+                <!-- 注意：开启了 multiple -->
+                <input class="file-input-hidden" type="file" accept="image/*" multiple @change="onFilesAdded" id="fileUpload" />
                 <label for="fileUpload" class="file-drop-label">
-                   <div class="upload-icon" v-if="!file">📂</div>
-                   <div class="upload-text" v-if="!file">
-                     <strong>点击选择图片</strong>
+                   <div class="upload-icon">📂</div>
+                   <div class="upload-text">
+                     <strong v-if="filesList.length === 0">点击或拖拽上传图片</strong>
+                     <strong v-else>继续添加图片</strong>
                    </div>
-                   <div class="file-info" v-else>
-                     <div class="file-icon">🖼️</div>
-                     <div class="file-name">{{ file.name }}</div>
-                     <div class="file-meta">{{ (file.size / 1024 / 1024).toFixed(2) }} MB</div>
-                     <div class="file-change-hint">点击更换</div>
+                   <div class="file-info" v-if="filesList.length > 0">
+                     <div class="file-meta">已选择 {{ filesList.length }} 张图片</div>
                    </div>
                 </label>
              </div>
@@ -214,7 +237,7 @@
             <div v-if="msg" class="message-box" :class="{ error: isError, success: !isError }">
               {{ msg }}
             </div>
-            <button class="submit-btn" :disabled="submitting || !file" data-sfx="click">
+            <button class="submit-btn" :disabled="submitting || filesList.length === 0" data-sfx="click">
               <span v-if="submitting" class="spinner"></span>
               {{ submitting ? statusMsg : '🚀 确认并提交' }}
             </button>
@@ -255,7 +278,9 @@ const tags = ref([])
 const sourceType = ref('personal')
 const contentType = ref('haruhi')
 const originUrl = ref('')
-const file = ref(null)
+
+// 改为文件列表：{ id, file, preview }
+const filesList = ref([])
 
 const uid = ref('')
 const uidHint = ref('')
@@ -270,14 +295,50 @@ const groupLicenses = ref([])
 const msg = ref('')
 const isError = ref(false)
 const submitting = ref(false)
-const statusMsg = ref('提交中…') // 用于按钮显示的细分状态
+const statusMsg = ref('提交中…')
 
 const uidHintClass = computed(() => uidHint.value.includes('✅') ? 'ok' : (uidHint.value.includes('❌') ? 'bad' : ''))
 
 // --- 方法 ---
-function onFile(e){
-  const f = e.target.files && e.target.files[0]
-  file.value = f || null
+
+// 多图添加
+async function onFilesAdded(e) {
+  const addedFiles = Array.from(e.target.files || [])
+  if (addedFiles.length === 0) return
+
+  // 清空 value 允许重复添加同名文件
+  e.target.value = ''
+
+  for (const f of addedFiles) {
+    const previewUrl = URL.createObjectURL(f)
+    filesList.value.push({
+      id: Date.now() + Math.random(),
+      file: f,
+      preview: previewUrl
+    })
+  }
+}
+
+// 移除图片
+function removeFile(index) {
+  const item = filesList.value[index]
+  if (item && item.preview) URL.revokeObjectURL(item.preview)
+  filesList.value.splice(index, 1)
+}
+
+// 拖拽排序
+let dragIndex = -1
+function onDragStart(e, index) {
+  dragIndex = index
+  e.dataTransfer.effectAllowed = 'move'
+  e.dataTransfer.dropEffect = 'move'
+}
+function onDrop(e, dropIndex) {
+  if (dragIndex === -1 || dragIndex === dropIndex) return
+  const item = filesList.value[dragIndex]
+  filesList.value.splice(dragIndex, 1)
+  filesList.value.splice(dropIndex, 0, item)
+  dragIndex = -1
 }
 
 function normalizeOneTag(s){
@@ -339,7 +400,7 @@ async function submit(){
   msg.value = ''
   isError.value = false
   
-  if(!file.value){ msg.value = '请选择图片文件'; isError.value = true; return }
+  if(filesList.value.length === 0){ msg.value = '请至少选择一张图片'; isError.value = true; return }
   if(!title.value.trim()){
     msg.value = '作品名称为必填'; isError.value = true;
     return
@@ -363,23 +424,21 @@ async function submit(){
   try{
     const fd = new FormData()
 
-    // --- 核心修改：压缩逻辑 ---
-    let compressedBlob = null
-    try {
-      // 压缩到 WebP, 90% 质量, 最大宽 1920
-      // 这里的 file.value 是 File 对象 (也是一种 Blob)
-      compressedBlob = await compressToWebP(file.value, 0.9, 1920)
-    } catch (err) {
-      console.warn('图片压缩失败，将使用原图作为展示图:', err)
-      // 如果压缩失败，展示图回退到原图
-      compressedBlob = file.value
+    // --- 批量处理图片 ---
+    for (const item of filesList.value) {
+      let compressedBlob = null
+      try {
+        // 压缩到 WebP, 90% 质量, 最大宽 1920
+        compressedBlob = await compressToWebP(item.file, 0.9, 1920)
+      } catch (err) {
+        console.warn('图片压缩失败，将使用原图作为展示图:', err)
+        compressedBlob = item.file
+      }
+      
+      // 使用 images (复数) 字段上传
+      fd.append('images', compressedBlob, 'display.webp')
+      fd.append('originals', item.file)
     }
-
-    // append 'image': 展示用的图 (压缩后的 WebP)
-    fd.append('image', compressedBlob, 'display.webp')
-    // append 'original': 下载用的原图
-    fd.append('original', file.value)
-    // -----------------------
 
     fd.append('uploader_name', uploaderName.value.trim())
     fd.append('title', title.value.trim())
@@ -417,8 +476,12 @@ async function submit(){
     title.value = ''
     description.value = ''
     originUrl.value = ''
-    file.value = null
-    // Reset file input value manually to clear the UI selection
+    
+    // 清空文件列表
+    filesList.value.forEach(i => URL.revokeObjectURL(i.preview))
+    filesList.value = []
+    
+    // Reset file input value manually
     const fileInput = document.getElementById('fileUpload')
     if(fileInput) fileInput.value = ''
     
@@ -959,6 +1022,53 @@ async function submit(){
 
 .list-enter-active, .list-leave-active { transition: all 0.3s ease; }
 .list-enter-from, .list-leave-to { opacity: 0; transform: translateX(-10px); }
+
+/* --- 新增：文件列表样式 (在原有样式之后追加) --- */
+.files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.file-card {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  cursor: grab;
+  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.file-card:active { cursor: grabbing; transform: scale(1.02); }
+.file-card.is-cover {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.file-thumb { height: 120px; position: relative; background: #eee; }
+.file-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+.remove-btn {
+  position: absolute; top: 4px; right: 4px;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+.remove-btn:hover { background: rgba(239, 68, 68, 0.9); }
+
+.cover-badge {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: rgba(16, 185, 129, 0.9); /* primary color variant */
+  color: #fff;
+  font-size: 10px; text-align: center;
+  padding: 2px 0; font-weight: 700;
+}
 
 /* 响应式调整 */
 @media (max-width: 768px) {

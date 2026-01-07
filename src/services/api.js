@@ -47,20 +47,31 @@ async function request(method, path, { params, body, isForm, headers } = {}) {
   return data
 }
 
-// Helper to fix image paths
+// 辅助函数：修复图片路径
+function fixPath(p) {
+  if (!p) return ''
+  if (p.startsWith('http') || p.startsWith('blob:') || p.startsWith('data:')) return p
+  if (!p.startsWith('/')) return `${API_PREFIX}/${p}`
+  return p
+}
+
 function transformArtwork(a) {
   if (!a) return a
-  // If it's a relative path starting with uploads/, prepend API_PREFIX
-  if (a.image_url && !a.image_url.startsWith('http') && !a.image_url.startsWith('/')) {
-    a.image_url = `${API_PREFIX}/${a.image_url}`
+  
+  // 修复单图路径
+  a.image_url = fixPath(a.image_url)
+  a.original_url = fixPath(a.original_url)
+  a.uploader_avatar = fixPath(a.uploader_avatar)
+
+  // 修复多图数组路径
+  if (Array.isArray(a.images)) {
+    a.images = a.images.map(img => ({
+      ...img,
+      image_url: fixPath(img.image_url),
+      original_url: fixPath(img.original_url)
+    }))
   }
-  if (a.original_url && !a.original_url.startsWith('http') && !a.original_url.startsWith('/')) {
-    a.original_url = `${API_PREFIX}/${a.original_url}`
-  }
-  // Check uploader_avatar just in case, though it might be external
-  if (a.uploader_avatar && !a.uploader_avatar.startsWith('http') && !a.uploader_avatar.startsWith('/')) {
-    a.uploader_avatar = `${API_PREFIX}/${a.uploader_avatar}`
-  }
+
   return a
 }
 
@@ -90,7 +101,7 @@ export const api = {
   listComments: (artworkId) => request('GET', `${API_PREFIX}/comments`, { params: { artwork_id: artworkId } }),
   postComment: (body) => request('POST', `${API_PREFIX}/comments`, { body }),
 
-  // Admin - Auth (新增)
+  // Admin - Auth
   adminVerify: (password) => request('POST', `${API_PREFIX}/admin/verify`, { body: { password } }),
 
   // Admin - Artworks
@@ -121,7 +132,7 @@ export const api = {
     const data = await request('GET', `${API_PREFIX}/admin/creators`)
     if (data.data) {
       data.data = data.data.map(c => {
-        if (c.avatar_url && !c.avatar_url.startsWith('http')) c.avatar_url = `${API_PREFIX}/${c.avatar_url}`
+        c.avatar_url = fixPath(c.avatar_url)
         return c
       })
     }
@@ -135,7 +146,7 @@ export const api = {
     const data = await request('GET', `${API_PREFIX}/points/leaderboard`, { params: { page } })
     if (data.data) {
       data.data = data.data.map(c => {
-        if (c.avatar_url && !c.avatar_url.startsWith('http')) c.avatar_url = `${API_PREFIX}/${c.avatar_url}`
+        c.avatar_url = fixPath(c.avatar_url)
         return c
       })
     }
@@ -146,7 +157,7 @@ export const api = {
     const data = await request('GET', `${API_PREFIX}/creators/search`, { params: { q } })
     if (data.data) {
       data.data = data.data.map(c => {
-        if (c.avatar_url && !c.avatar_url.startsWith('http')) c.avatar_url = `${API_PREFIX}/${c.avatar_url}`
+        c.avatar_url = fixPath(c.avatar_url)
         return c
       })
     }
