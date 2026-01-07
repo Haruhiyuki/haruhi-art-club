@@ -222,7 +222,10 @@
                   <img :src="c.avatar_url || '/api/placeholder/40/40'" class="c-avatar sm" />
                   <div class="c-info-mini">
                     <div class="c-uid">{{ c.uid }}</div>
-                    <div class="c-sub">注册于: {{ new Date(c.created_at).toLocaleDateString() }}</div>
+                    <div class="c-sub">
+                      <span>{{ new Date(c.created_at).toLocaleDateString() }}</span>
+                      <span v-if="c.qq" class="qq-badge">QQ</span>
+                    </div>
                   </div>
                   <div class="c-arr">›</div>
                 </div>
@@ -258,7 +261,16 @@
                      <div class="row">
                        <input v-model="editCreatorForm.uid" class="input" placeholder="输入新的 UID" />
                      </div>
-                     <div class="tip-text warn">⚠️ 请谨慎操作，修改前和创作者进行确认，以后需用新ID投稿。</div>
+                     <div class="tip-text warn">⚠️ 修改 UID 会同步更新该作者所有的投稿记录和积分记录，请谨慎操作。</div>
+                   </div>
+
+                   <!-- QQ号 修改 -->
+                   <div class="form-group">
+                     <label>关联 QQ 号</label>
+                     <div class="row">
+                       <input v-model="editCreatorForm.qq" class="input" placeholder="输入关联的QQ号码" />
+                     </div>
+                     <div class="tip-text">用于身份核实或联系，仅后台可见。</div>
                    </div>
                    
                    <div class="form-actions">
@@ -363,7 +375,7 @@ const creators = ref([])
 const creatorSearch = ref('')
 const newCreatorUid = ref('')
 const selectedCreator = ref(null)
-const editCreatorForm = ref({ uid: '', file: null })
+const editCreatorForm = ref({ uid: '', qq: '', file: null })
 const previewAvatar = ref(null)
 const saveMsg = ref('')
 const creatorLogs = ref([])
@@ -380,8 +392,9 @@ const filteredCreators = computed(() => {
 const isCreatorModified = computed(() => {
   if (!selectedCreator.value) return false
   const uidChanged = editCreatorForm.value.uid !== selectedCreator.value.uid
+  const qqChanged = editCreatorForm.value.qq !== (selectedCreator.value.qq || '')
   const fileChanged = !!editCreatorForm.value.file
-  return uidChanged || fileChanged
+  return uidChanged || qqChanged || fileChanged
 })
 
 // 计算属性：过滤后的评论
@@ -515,10 +528,8 @@ async function loadCreators() {
   // 如果当前选中的创作者还在列表中，刷新它
   if (selectedCreator.value) {
     const fresh = creators.value.find(c => c.uid === selectedCreator.value.uid)
-    // 如果UID变了或者被删了，selectedCreator 需要重新处理
-    // 但这里主要处理数据刷新。如果改了UID，会在 updateCreator 里处理 selection
     if (fresh) {
-      // 保持选中
+      // 保持选中，但可能数据已更新，暂不强制覆盖表单，避免打断输入
     } 
   }
 }
@@ -532,7 +543,8 @@ async function addCreator() {
 
 async function selectCreator(c) {
   selectedCreator.value = c
-  editCreatorForm.value = { uid: c.uid, file: null }
+  // 绑定数据到表单，处理 QQ 可能为空的情况
+  editCreatorForm.value = { uid: c.uid, qq: c.qq || '', file: null }
   previewAvatar.value = null
   saveMsg.value = ''
   pointsForm.value = { amount: 10, reason: '' }
@@ -555,6 +567,7 @@ async function updateCreator() {
   try {
     const formData = new FormData()
     formData.append('new_uid', editCreatorForm.value.uid)
+    formData.append('qq', editCreatorForm.value.qq) // 添加 QQ
     if (editCreatorForm.value.file) {
       formData.append('avatar', editCreatorForm.value.file)
     }
@@ -582,7 +595,7 @@ async function updateCreator() {
 async function deleteCreator() {
   if (!selectedCreator.value) return
   const uid = selectedCreator.value.uid
-  if (!confirm(`⚠️ 严重警告：\n你确定要删除创作者 "${uid}" 吗？\n该操作不可恢复！\n该创作者的作品会保留，但投稿ID和积分会消失。`)) return
+  if (!confirm(`⚠️ 严重警告：\n你确定要删除创作者 "${uid}" 吗？\n该操作不可恢复！`)) return
 
   try {
     await api.adminDeleteCreator(uid)
@@ -725,7 +738,8 @@ onMounted(async () => {
 .c-avatar.sm { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #eee; }
 .c-info-mini { flex: 1; overflow: hidden; }
 .c-uid { font-weight: 600; font-size: 14px; color: #1f2937; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.c-sub { font-size: 11px; color: #9ca3af; }
+.c-sub { font-size: 11px; color: #9ca3af; display: flex; gap: 6px; align-items: center; }
+.qq-badge { background: #dbeafe; color: #1e40af; padding: 0 4px; border-radius: 3px; font-size: 10px; font-weight: bold; }
 .c-arr { color: #d1d5db; font-size: 18px; }
 
 /* 创作者详情面板 */

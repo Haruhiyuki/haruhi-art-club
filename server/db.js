@@ -28,7 +28,8 @@ export async function initDb(dbPath){
     CREATE TABLE IF NOT EXISTS creators (
       uid TEXT PRIMARY KEY,
       avatar_url TEXT,
-      created_at TEXT
+      created_at TEXT,
+      qq TEXT -- 新增：QQ号字段
     );
   `)
 
@@ -52,7 +53,7 @@ export async function initDb(dbPath){
       created_at TEXT,
       licenses_json TEXT,
       like_total INTEGER DEFAULT 0,
-      images_json TEXT -- 新增：存储多张图片的 JSON 数组
+      images_json TEXT
     );
   `)
 
@@ -112,16 +113,15 @@ export async function initDb(dbPath){
   await ensureColumn(_db, 'artworks', 'like_total', 'like_total INTEGER DEFAULT 0')
   await ensureColumn(_db, 'artworks', 'reviewed_at', 'reviewed_at TEXT')
   await ensureColumn(_db, 'artworks', 'file_path_original', 'file_path_original TEXT')
-  
-  // 新增：多图存储字段
   await ensureColumn(_db, 'artworks', 'images_json', 'images_json TEXT')
-
   await ensureColumn(_db, 'comments', 'anon_id', 'anon_id TEXT')
   await ensureColumn(_db, 'comments', 'like_total', 'like_total INTEGER DEFAULT 0')
   await ensureColumn(_db, 'comments', 'status', "status TEXT DEFAULT 'public'")
-
   await ensureColumn(_db, 'members', 'is_active', 'is_active INTEGER DEFAULT 1')
   await ensureColumn(_db, 'members', 'created_at', 'created_at TEXT')
+  
+  // 新增：确保 creators 表有 qq 字段
+  await ensureColumn(_db, 'creators', 'qq', 'qq TEXT')
 
   return _db
 }

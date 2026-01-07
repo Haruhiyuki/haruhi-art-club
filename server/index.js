@@ -726,8 +726,9 @@ app.delete('/api/admin/comments/:id', requireAdmin, async (req, res) => {
   res.json({ ok: true })
 })
 
+// 修改：返回数据中包含 QQ
 app.get('/api/admin/creators', requireAdmin, async (req, res) => {
-  res.json({ ok: true, data: await getDb().all(`SELECT uid, avatar_url, created_at FROM creators ORDER BY datetime(created_at) DESC`) })
+  res.json({ ok: true, data: await getDb().all(`SELECT uid, avatar_url, created_at, qq FROM creators ORDER BY datetime(created_at) DESC`) })
 })
 app.post('/api/admin/creators', requireAdmin, async (req, res) => {
   const db = getDb()
@@ -738,11 +739,12 @@ app.post('/api/admin/creators', requireAdmin, async (req, res) => {
   res.json({ ok: true })
 })
 
-// 新增：更新创作者 (UID 重命名 + 头像)
+// 修改：支持更新 QQ
 app.post('/api/admin/creators/:uid/update', requireAdmin, avatarUpload, async (req, res) => {
   const db = getDb()
   const oldUid = req.params.uid
   const newUid = safeText(req.body.new_uid)
+  const qq = safeText(req.body.qq) // 获取 QQ 参数
   
   if (!oldUid) return res.status(400).json({ok: false, message: 'Missing param'})
 
@@ -751,7 +753,7 @@ app.post('/api/admin/creators/:uid/update', requireAdmin, avatarUpload, async (r
 
   let finalUid = oldUid
 
-  // 开启事务处理重命名
+  // 开启事务处理
   await db.run('BEGIN TRANSACTION')
   try {
     // 1. 如果 UID 变更，更新所有相关表
@@ -762,8 +764,6 @@ app.post('/api/admin/creators/:uid/update', requireAdmin, avatarUpload, async (r
         throw new Error(`UID "${newUid}" already exists`)
       }
 
-      // SQLite 更新 PK 需要级联更新 FK (如果没设 ON UPDATE CASCADE)
-      // 这里手动更新确保安全
       await db.run(`UPDATE creators SET uid=? WHERE uid=?`, [newUid, oldUid])
       await db.run(`UPDATE artworks SET uploader_uid=? WHERE uploader_uid=?`, [newUid, oldUid])
       await db.run(`UPDATE points_ledger SET uid=? WHERE uid=?`, [newUid, oldUid])
@@ -771,11 +771,13 @@ app.post('/api/admin/creators/:uid/update', requireAdmin, avatarUpload, async (r
       finalUid = newUid
     }
 
-    // 2. 如果有头像上传
+    // 2. 更新 QQ
+    await db.run(`UPDATE creators SET qq=? WHERE uid=?`, [qq, finalUid])
+
+    // 3. 如果有头像上传
     if (req.file) {
       const relPath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/')
       const avatarUrl = `uploads/${relPath}`
-      // 注意这里用 finalUid，因为上面可能已经改名了
       await db.run(`UPDATE creators SET avatar_url=? WHERE uid=?`, [avatarUrl, finalUid])
     }
 
@@ -791,18 +793,7 @@ app.post('/api/admin/creators/:uid/update', requireAdmin, avatarUpload, async (r
 app.delete('/api/admin/creators/:uid', requireAdmin, async (req, res) => {
   const db = getDb()
   const uid = req.params.uid
-  
-  // 仅删除 creators 表记录？还是连带作品？
-  // 暂时保留作品，将 uploader_uid 置空，或者仅仅删除账号。
-  // 通常删除账号不应轻易删除其贡献的内容，或者应由管理员手动先删内容。
-  // 这里逻辑：删除创作者记录，其作品保留但变更为"无归属"(或者前端显示时处理为未知)。
-  // 积分记录也一并删除吗？一般保留作为历史数据，或者级联删除。
-  // 这里选择简单删除 creators 表记录。
-  
   await db.run(`DELETE FROM creators WHERE uid=?`, [uid])
-  // 可选：清理积分记录
-  // await db.run(`DELETE FROM points_ledger WHERE uid=?`, [uid])
-  
   res.json({ ok: true })
 })
 
