@@ -199,26 +199,121 @@
           </div>
         </div>
 
-        <!-- ================= 创作者管理 ================= -->
+        <!-- ================= 创作者管理 (优化后) ================= -->
         <div v-if="mainTab==='creators'" class="tab-content">
-          <div class="toolbar">
-            <input v-model="creatorSearch" class="input sm" placeholder="搜索 UID..." />
-            <div class="right-tool">
-               <input v-model="newCreatorUid" placeholder="新增 UID" class="input sm" style="width:120px" />
-               <button class="btn sm" @click="addCreator">添加创作者</button>
-            </div>
-          </div>
+          <div class="two-col-layout">
+            <!-- 左列：列表 -->
+            <div class="col-left">
+              <div class="toolbar tight">
+                <input v-model="creatorSearch" class="input sm" placeholder="搜索 UID..." />
+                <div class="add-row">
+                   <input v-model="newCreatorUid" placeholder="新增 UID" class="input sm" />
+                   <button class="btn sm" @click="addCreator">+</button>
+                </div>
+              </div>
 
-          <div class="creator-grid">
-            <div class="creator-card" v-for="c in filteredCreators" :key="c.uid" @click="openCreatorModal(c)">
-              <div class="c-avatar-box">
-                <img :src="c.avatar_url || '/api/placeholder/40/40'" class="c-avatar" />
+              <div class="creator-list-v">
+                <div 
+                  v-for="c in filteredCreators" :key="c.uid" 
+                  class="creator-item" 
+                  :class="{ active: selectedCreator?.uid === c.uid }"
+                  @click="selectCreator(c)"
+                >
+                  <img :src="c.avatar_url || '/api/placeholder/40/40'" class="c-avatar sm" />
+                  <div class="c-info-mini">
+                    <div class="c-uid">{{ c.uid }}</div>
+                    <div class="c-sub">注册于: {{ new Date(c.created_at).toLocaleDateString() }}</div>
+                  </div>
+                  <div class="c-arr">›</div>
+                </div>
+                <div v-if="filteredCreators.length === 0" class="empty-ph">暂无数据</div>
               </div>
-              <div class="c-info">
-                <div class="c-uid">{{ c.uid }}</div>
-                <div class="c-pts">点击管理积分详情</div>
+            </div>
+
+            <!-- 右列：详情与编辑 -->
+            <div class="col-right">
+              <div v-if="selectedCreator" class="creator-detail-panel">
+                <div class="panel-header">
+                  <div class="ph-title">编辑创作者: {{ selectedCreator.uid }}</div>
+                  <button class="btn-ghost danger sm" @click="deleteCreator">删除账号</button>
+                </div>
+
+                <div class="edit-form">
+                   <!-- 头像设置 -->
+                   <div class="form-group">
+                     <label>头像配置</label>
+                     <div class="avatar-uploader">
+                       <img :src="previewAvatar || selectedCreator.avatar_url || '/api/placeholder/80/80'" class="avatar-preview" />
+                       <div class="au-actions">
+                         <input type="file" ref="fileInput" accept="image/*" @change="handleFileChange" style="display:none" />
+                         <button class="btn-ghost sm" @click="$refs.fileInput.click()">选择本地图片</button>
+                         <div class="tip-text">支持 jpg, png, webp</div>
+                       </div>
+                     </div>
+                   </div>
+
+                   <!-- 名称/UID 修改 -->
+                   <div class="form-group">
+                     <label>UID (名称)</label>
+                     <div class="row">
+                       <input v-model="editCreatorForm.uid" class="input" placeholder="输入新的 UID" />
+                     </div>
+                     <div class="tip-text warn">⚠️ 请谨慎操作，修改前和创作者进行确认，以后需用新ID投稿。</div>
+                   </div>
+                   
+                   <div class="form-actions">
+                     <button class="btn" @click="updateCreator" :disabled="!isCreatorModified">保存更改</button>
+                     <span v-if="saveMsg" class="save-msg">{{ saveMsg }}</span>
+                   </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- 积分管理 -->
+                <div class="points-section">
+                  <div class="label-lg">积分管理</div>
+                  
+                  <div class="points-action-row">
+                    <div class="quick-points">
+                      <button v-for="v in [10, 20, 50, -10, -50]" :key="v" 
+                        class="chip-btn" 
+                        :class="pointsForm.amount === v && 'active'"
+                        @click="pointsForm.amount = v">
+                        {{ v > 0 ? '+' + v : v }}
+                      </button>
+                    </div>
+                    <div class="pa-form">
+                      <div class="input-group">
+                        <span class="input-prefix">分值</span>
+                        <input type="number" v-model.number="pointsForm.amount" class="input points-num sm" />
+                      </div>
+                      <input v-model="pointsForm.reason" class="input sm" placeholder="变更原因 (必填)" style="flex:1" />
+                      <button class="btn sm" @click="grantPoints" :disabled="!pointsForm.reason">执行</button>
+                    </div>
+                  </div>
+
+                  <div class="ph-list compact">
+                    <div class="ph-row head">
+                      <span>时间</span>
+                      <span>变动</span>
+                      <span>原因</span>
+                    </div>
+                    <div class="ph-scroll-area">
+                       <div class="ph-row" v-for="(log, idx) in creatorLogs" :key="idx">
+                        <span class="ph-time">{{ new Date(log.granted_at).toLocaleDateString() }}</span>
+                        <span class="ph-val" :class="log.points > 0 ? 'pos' : 'neg'">{{ log.points > 0 ? '+' : '' }}{{ log.points }}</span>
+                        <span class="ph-reason">{{ log.note || log.artwork_title }}</span>
+                      </div>
+                      <div v-if="!creatorLogs.length" class="empty-ph">暂无积分记录</div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
-              <div class="c-arrow">➔</div>
+              <div v-else class="empty-select">
+                <div class="icon">🎨</div>
+                <div>请在左侧选择一个创作者进行管理</div>
+              </div>
             </div>
           </div>
         </div>
@@ -229,56 +324,6 @@
     <!-- 作品预览弹窗 -->
     <ArtworkModal v-model="showPreview" :item="previewItem" />
 
-    <!-- 创作者积分管理弹窗 -->
-    <div v-if="showCreatorModal" class="modal-overlay" @click.self="closeCreatorModal">
-      <div class="modal-box">
-        <div class="modal-head">
-          <div class="modal-title">积分管理 - {{ selectedCreator?.uid }}</div>
-          <button class="close-btn" @click="closeCreatorModal">×</button>
-        </div>
-        <div class="modal-body">
-          <div class="points-history">
-            <div class="ph-row head">
-              <span>时间</span>
-              <span>变动</span>
-              <span>原因</span>
-            </div>
-            <div class="ph-list">
-              <div class="ph-row" v-for="(log, idx) in creatorLogs" :key="idx">
-                <span class="ph-time">{{ new Date(log.granted_at).toLocaleDateString() }}</span>
-                <span class="ph-val" :class="log.points > 0 ? 'pos' : 'neg'">{{ log.points > 0 ? '+' : '' }}{{ log.points }}</span>
-                <span class="ph-reason">{{ log.note || log.artwork_title }}</span>
-              </div>
-              <div v-if="!creatorLogs.length" class="empty-ph">暂无记录</div>
-            </div>
-          </div>
-
-          <div class="points-action">
-            <div class="label">手动调整积分</div>
-            
-            <!-- 快捷数额选择 -->
-            <div class="quick-points">
-              <button v-for="v in [10, 20, 50, -10, -50]" :key="v" 
-                class="chip-btn" 
-                :class="pointsForm.amount === v && 'active'"
-                @click="pointsForm.amount = v">
-                {{ v > 0 ? '+' + v : v }}
-              </button>
-            </div>
-
-            <div class="pa-form">
-              <div class="input-group">
-                <span class="input-prefix">分值</span>
-                <input type="number" v-model.number="pointsForm.amount" class="input points-num" />
-              </div>
-              
-              <input v-model="pointsForm.reason" class="input" placeholder="输入变更原因 (必填)" style="flex:1" />
-              <button class="btn lg" @click="grantPoints" :disabled="!pointsForm.reason">执行</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
   </section>
 </template>
 
@@ -317,8 +362,10 @@ const commentSearch = ref('')
 const creators = ref([])
 const creatorSearch = ref('')
 const newCreatorUid = ref('')
-const showCreatorModal = ref(false)
 const selectedCreator = ref(null)
+const editCreatorForm = ref({ uid: '', file: null })
+const previewAvatar = ref(null)
+const saveMsg = ref('')
 const creatorLogs = ref([])
 const pointsForm = ref({ amount: 10, reason: '' })
 
@@ -329,9 +376,17 @@ const filteredCreators = computed(() => {
   return creators.value.filter(c => c.uid.toLowerCase().includes(q))
 })
 
+// 计算是否有修改
+const isCreatorModified = computed(() => {
+  if (!selectedCreator.value) return false
+  const uidChanged = editCreatorForm.value.uid !== selectedCreator.value.uid
+  const fileChanged = !!editCreatorForm.value.file
+  return uidChanged || fileChanged
+})
+
 // 计算属性：过滤后的评论
 const filteredComments = computed(() => {
-  if (commentTab.value === 'pending') return comments.value // 已在 fetch 时过滤
+  if (commentTab.value === 'pending') return comments.value 
   if (!commentSearch.value) return comments.value
   const q = commentSearch.value.toLowerCase()
   return comments.value.filter(c => 
@@ -348,23 +403,18 @@ async function checkPw() {
   msg.value = ''
   
   try {
-    // 调用后端验证接口，不再在前端硬编码密码
     await api.adminVerify(inputPw.value)
-    
-    // 验证成功
     authed.value = true
     localStorage.setItem('admin_pw', inputPw.value)
     init()
   } catch (e) {
     msg.value = '密码错误或无权限'
-    // 验证失败，清除本地存储的错误密码（如果有）
     localStorage.removeItem('admin_pw')
   } finally {
     loading.value = false
   }
 }
 
-// 退出登录
 function logout() {
   localStorage.removeItem('admin_pw')
   authed.value = false
@@ -379,10 +429,6 @@ function init() {
 
 // ---------------- 图片管理 ----------------
 
-// 加载 Pending
-// (由 adminStore.loadPending 处理)
-
-// 加载 Approved List
 async function loadApprovedList() {
   try {
     const res = await api.artworksList({
@@ -402,18 +448,15 @@ function changePage(delta) {
   loadApprovedList()
 }
 
-// 预览
 function openPreview(it) {
   previewItem.value = it
   showPreview.value = true
 }
 
-// 审核操作
 async function approve(it) {
   await adminStore.approveArtwork(it, notes.value[it.id])
 }
 
-// 彻底删除
 async function hardDelete(it, from = 'audit') {
   if (!confirm(`⚠️ 警告：正在从数据库中永久删除作品 "${it.title}"。\n此操作不可恢复！是否继续？`)) return
   await api.adminDeleteArtwork(it.id)
@@ -421,15 +464,13 @@ async function hardDelete(it, from = 'audit') {
   else if (from === 'list') loadApprovedList()
 }
 
-// 锁定（退回 Flagged）
 async function lockArtwork(it) {
   if (!confirm('锁定后该作品将下架并进入审核队列，确认？')) return
   await api.adminUpdateArtworkStatus(it.id, 'flagged')
   loadApprovedList()
-  adminStore.loadPending() // 刷新 pending 队列
+  adminStore.loadPending() 
 }
 
-// 编辑相关
 function startEdit(it) {
   editingId.value = it.id
   editForm.value = {
@@ -450,9 +491,6 @@ async function saveEdit(it) {
 async function switchCommentTab(t) {
   commentTab.value = t
   commentSearch.value = ''
-  // 映射 tab 到 API status 参数
-  // pending tab -> flagged status
-  // all tab -> all status
   const statusParam = t === 'pending' ? 'flagged' : 'all'
   const res = await api.adminListComments(statusParam)
   comments.value = res.data
@@ -460,7 +498,6 @@ async function switchCommentTab(t) {
 
 async function updateComment(c, status) {
   await api.adminUpdateCommentStatus(c.id, status)
-  // 刷新当前列表
   switchCommentTab(commentTab.value)
 }
 
@@ -470,33 +507,90 @@ async function deleteComment(c) {
   comments.value = comments.value.filter(x => x.id !== c.id)
 }
 
-// ---------------- 创作者管理 ----------------
+// ---------------- 创作者管理 (新逻辑) ----------------
 
 async function loadCreators() {
   const res = await api.adminCreators()
   creators.value = res.data
+  // 如果当前选中的创作者还在列表中，刷新它
+  if (selectedCreator.value) {
+    const fresh = creators.value.find(c => c.uid === selectedCreator.value.uid)
+    // 如果UID变了或者被删了，selectedCreator 需要重新处理
+    // 但这里主要处理数据刷新。如果改了UID，会在 updateCreator 里处理 selection
+    if (fresh) {
+      // 保持选中
+    } 
+  }
 }
 
 async function addCreator() {
   if (!newCreatorUid.value) return
   await api.adminAddCreator(newCreatorUid.value)
   newCreatorUid.value = ''
-  loadCreators()
+  await loadCreators()
 }
 
-async function openCreatorModal(c) {
+async function selectCreator(c) {
   selectedCreator.value = c
-  showCreatorModal.value = true
+  editCreatorForm.value = { uid: c.uid, file: null }
+  previewAvatar.value = null
+  saveMsg.value = ''
   pointsForm.value = { amount: 10, reason: '' }
-  // 加载积分记录
+  
+  // 加载积分
   const res = await api.adminPointsLedger()
-  // 客户端过滤 UID (因为后端暂无特定接口)
   creatorLogs.value = (res.data || []).filter(l => l.uid === c.uid)
 }
 
-function closeCreatorModal() {
-  showCreatorModal.value = false
-  selectedCreator.value = null
+function handleFileChange(e) {
+  const file = e.target.files[0]
+  if (!file) return
+  editCreatorForm.value.file = file
+  previewAvatar.value = URL.createObjectURL(file)
+}
+
+async function updateCreator() {
+  if (!selectedCreator.value) return
+  
+  try {
+    const formData = new FormData()
+    formData.append('new_uid', editCreatorForm.value.uid)
+    if (editCreatorForm.value.file) {
+      formData.append('avatar', editCreatorForm.value.file)
+    }
+
+    const res = await api.adminUpdateCreator(selectedCreator.value.uid, formData)
+    
+    saveMsg.value = '保存成功！'
+    setTimeout(() => saveMsg.value = '', 2000)
+
+    // 重新加载列表
+    await loadCreators()
+    
+    // 定位到新的UID (如果改名了)
+    const newUid = editCreatorForm.value.uid
+    const newObj = creators.value.find(c => c.uid === newUid)
+    if (newObj) {
+      selectCreator(newObj)
+    }
+  } catch(e) {
+    console.error(e)
+    alert('保存失败: ' + (e.message || '未知错误'))
+  }
+}
+
+async function deleteCreator() {
+  if (!selectedCreator.value) return
+  const uid = selectedCreator.value.uid
+  if (!confirm(`⚠️ 严重警告：\n你确定要删除创作者 "${uid}" 吗？\n该操作不可恢复！\n该创作者的作品会保留，但投稿ID和积分会消失。`)) return
+
+  try {
+    await api.adminDeleteCreator(uid)
+    selectedCreator.value = null
+    await loadCreators()
+  } catch(e) {
+    alert('删除失败')
+  }
 }
 
 async function grantPoints() {
@@ -504,15 +598,14 @@ async function grantPoints() {
   try {
     await api.adminGrantPoints({
       uid: selectedCreator.value.uid,
-      artwork_id: 0, // 0 代表手动/系统操作
+      artwork_id: 0,
       points: pointsForm.value.amount,
       note: pointsForm.value.reason
     })
     // 刷新记录
     const res = await api.adminPointsLedger()
     creatorLogs.value = (res.data || []).filter(l => l.uid === selectedCreator.value.uid)
-    pointsForm.value.reason = '' // 清空原因
-    // alert('操作成功') 
+    pointsForm.value.reason = ''
   } catch(e) {
     alert('操作失败')
   }
@@ -526,7 +619,6 @@ watch(mainTab, (v) => {
 })
 
 onMounted(async () => {
-  // 尝试使用本地存储的密码自动登录
   const savedPw = localStorage.getItem('admin_pw')
   if (savedPw) {
     loading.value = true
@@ -535,7 +627,6 @@ onMounted(async () => {
       authed.value = true
       init()
     } catch {
-      // 密码失效或过期
       localStorage.removeItem('admin_pw')
     } finally {
       loading.value = false
@@ -612,9 +703,58 @@ onMounted(async () => {
 
 /* 工具栏 */
 .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+.toolbar.tight { margin-bottom: 10px; flex-direction: column; align-items: stretch; gap: 8px; }
 .filter-bar { background: #fff; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; }
 .filters { display: flex; gap: 10px; align-items: center; flex: 1; }
 .tip { font-size: 13px; color: #6b7280; }
+.add-row { display: flex; gap: 8px; }
+
+/* 两列式布局 */
+.two-col-layout { display: flex; height: calc(100vh - 200px); min-height: 500px; gap: 20px; }
+.col-left { width: 280px; display: flex; flex-direction: column; border-right: 1px solid #e5e7eb; padding-right: 16px; }
+.col-right { flex: 1; overflow-y: auto; background: #fff; border-radius: 8px; border: 1px solid #e5e7eb; padding: 0; }
+
+/* 创作者列表 */
+.creator-list-v { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 4px; }
+.creator-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px;
+  cursor: pointer; transition: all 0.15s; border: 1px solid transparent;
+}
+.creator-item:hover { background: #fff; border-color: #e5e7eb; }
+.creator-item.active { background: #eff6ff; border-color: #bfdbfe; }
+.c-avatar.sm { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #eee; }
+.c-info-mini { flex: 1; overflow: hidden; }
+.c-uid { font-weight: 600; font-size: 14px; color: #1f2937; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.c-sub { font-size: 11px; color: #9ca3af; }
+.c-arr { color: #d1d5db; font-size: 18px; }
+
+/* 创作者详情面板 */
+.creator-detail-panel { display: flex; flex-direction: column; height: 100%; }
+.panel-header { padding: 16px 24px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; background: #f9fafb; }
+.ph-title { font-size: 18px; font-weight: bold; color: #111; }
+.empty-select { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #9ca3af; gap: 10px; }
+.empty-select .icon { font-size: 40px; opacity: 0.5; }
+
+.edit-form { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+.form-group { display: flex; flex-direction: column; gap: 8px; }
+.form-group label { font-size: 13px; font-weight: 600; color: #374151; }
+.avatar-uploader { display: flex; align-items: center; gap: 20px; }
+.avatar-preview { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 1px solid #e5e7eb; }
+.au-actions { display: flex; flex-direction: column; gap: 6px; }
+.tip-text { font-size: 12px; color: #9ca3af; }
+.tip-text.warn { color: #d97706; margin-top: 4px; }
+.form-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.save-msg { color: #059669; font-size: 13px; font-weight: 600; }
+.divider { height: 1px; background: #e5e7eb; margin: 0 24px; }
+
+/* 详情页内的积分部分 */
+.points-section { padding: 24px; }
+.label-lg { font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 16px; }
+.points-action-row { margin-bottom: 16px; }
+
+.ph-list.compact { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
+.ph-scroll-area { max-height: 200px; overflow-y: auto; }
+.ph-row { padding: 8px 12px; font-size: 12px; }
 
 /* 卡片通用 */
 .card-grid { display: grid; gap: 16px; }
@@ -627,7 +767,6 @@ onMounted(async () => {
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 .m-thumb { width: 140px; height: 140px; position: relative; flex-shrink: 0; }
-.m-thumb.small { width: 100px; height: 100px; }
 .m-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
 /* 状态标 */
@@ -685,49 +824,6 @@ onMounted(async () => {
 .badge-mini.flagged { background: #fee2e2; color: #dc2626; }
 .badge-mini.public { background: #d1fae5; color: #059669; }
 
-/* 创作者卡片 */
-.creator-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-.creator-card {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.creator-card:hover { border-color: #2563eb; transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-.c-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: #eee; }
-.c-info { flex: 1; }
-.c-uid { font-weight: bold; font-size: 14px; color: #111; }
-.c-pts { font-size: 12px; color: #6b7280; }
-.c-arrow { color: #d1d5db; }
-
-/* 弹窗 */
-.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(2px); }
-.modal-box { background: #fff; border-radius: 16px; width: 520px; max-width: 90%; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
-.modal-head { padding: 16px 24px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; background: #fff; }
-.modal-title { font-weight: bold; font-size: 18px; }
-.close-btn { background: transparent; border: none; font-size: 24px; color: #9ca3af; cursor: pointer; padding: 4px; line-height: 1; }
-.close-btn:hover { color: #111; }
-.modal-body { padding: 24px; overflow-y: auto; background: #f9fafb; }
-
-.points-history { margin-bottom: 24px; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #fff; }
-.ph-row { display: flex; padding: 10px 16px; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
-.ph-row:last-child { border-bottom: none; }
-.ph-row.head { background: #f9fafb; font-weight: bold; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
-.ph-time { width: 100px; color: #9ca3af; }
-.ph-val { width: 70px; font-weight: bold; }
-.ph-val.pos { color: #059669; }
-.ph-val.neg { color: #dc2626; }
-.ph-reason { flex: 1; color: #374151; }
-.empty-ph { padding: 24px; text-align: center; color: #9ca3af; font-size: 13px; }
-
-.points-action { background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
-.label { font-weight: bold; font-size: 14px; margin-bottom: 12px; color: #1f2937; }
-
 .quick-points { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
 .chip-btn {
   padding: 4px 12px; border-radius: 20px; border: 1px solid #e5e7eb; background: #fff; 
@@ -741,7 +837,7 @@ onMounted(async () => {
 .input-prefix { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; color: #9ca3af; pointer-events: none; }
 .points-num { padding-left: 40px !important; text-align: center; font-weight: bold; }
 
-/* 按钮与输入框通用 - 优化后 */
+/* 按钮与输入框通用 */
 .btn { 
   padding: 0 16px; height: 38px; border-radius: 8px; font-size: 14px; font-weight: 600; 
   cursor: pointer; border: none; background: #111; color: #fff; transition: all 0.2s; 
@@ -753,9 +849,7 @@ onMounted(async () => {
 .btn.sm { height: 32px; font-size: 12px; padding: 0 12px; }
 .btn.lg { height: 42px; font-size: 14px; }
 .btn.success { background: #059669; }
-.btn.success:hover:not(:disabled) { background: #047857; }
 .btn.danger { background: #dc2626; }
-.btn.danger:hover:not(:disabled) { background: #b91c1c; }
 
 .btn-ghost { 
   height: 38px; padding: 0 16px; background: transparent; border: 1px solid #d1d5db; 
@@ -765,13 +859,10 @@ onMounted(async () => {
 .btn-ghost:hover { background: #f3f4f6; border-color: #9ca3af; color: #111; }
 .btn-ghost.sm { height: 32px; font-size: 12px; padding: 0 12px; }
 .btn-ghost.warn { color: #d97706; border-color: #fbbf24; }
-.btn-ghost.warn:hover { background: #fffbeb; border-color: #d97706; }
 .btn-ghost.danger { color: #dc2626; border-color: #fca5a5; }
-.btn-ghost.danger:hover { background: #fef2f2; border-color: #dc2626; }
 
 .btn-text { background: transparent; border: none; color: #2563eb; cursor: pointer; font-size: 13px; text-decoration: underline; padding: 0; }
 .btn-mini { padding: 4px 10px; font-size: 11px; border-radius: 6px; border: none; cursor: pointer; color: #fff; background: #6b7280; font-weight: 600; }
-.btn-mini:hover { opacity: 0.9; }
 .btn-mini.success { background: #059669; }
 .btn-mini.warn { background: #d97706; }
 .btn-mini.danger { background: #dc2626; }
@@ -783,4 +874,15 @@ onMounted(async () => {
 .input.sm, .select.sm { padding: 6px 10px; font-size: 13px; }
 .input:focus, .textarea:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
 .textarea { resize: vertical; min-height: 80px; }
+
+/* 积分记录 */
+.ph-row { display: flex; padding: 10px 16px; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+.ph-row:last-child { border-bottom: none; }
+.ph-row.head { background: #f9fafb; font-weight: bold; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
+.ph-time { width: 100px; color: #9ca3af; }
+.ph-val { width: 70px; font-weight: bold; }
+.ph-val.pos { color: #059669; }
+.ph-val.neg { color: #dc2626; }
+.ph-reason { flex: 1; color: #374151; }
+.empty-ph { padding: 24px; text-align: center; color: #9ca3af; font-size: 13px; }
 </style>

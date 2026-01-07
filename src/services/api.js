@@ -28,8 +28,10 @@ async function request(method, path, { params, body, isForm, headers } = {}) {
   }
 
   if (method !== 'GET' && method !== 'HEAD') {
-    if (isForm) init.body = body
-    else if (body !== undefined) {
+    if (isForm) {
+      // For FormData, do not set Content-Type header manually; browser does it
+      init.body = body
+    } else if (body !== undefined) {
       init.headers['Content-Type'] = 'application/json'
       init.body = JSON.stringify(body)
     }
@@ -126,7 +128,7 @@ export const api = {
   adminUpdateCommentStatus: (id, status) => request('POST', `${API_PREFIX}/admin/comments/${id}/status`, { body: { status } }),
   adminDeleteComment: (id) => request('DELETE', `${API_PREFIX}/admin/comments/${id}`),
 
-  // Admin - Others
+  // Admin - Creators & Points
   adminPointsLedger: () => request('GET', `${API_PREFIX}/admin/points-ledger`),
   adminCreators: async () => {
     const data = await request('GET', `${API_PREFIX}/admin/creators`)
@@ -139,6 +141,13 @@ export const api = {
     return data
   },
   adminAddCreator: (uid) => request('POST', `${API_PREFIX}/admin/creators`, { body: { uid } }),
+  
+  // 新增：更新创作者信息（支持传 FormData 包含头像文件）
+  adminUpdateCreator: (uid, formData) => request('POST', `${API_PREFIX}/admin/creators/${encodeURIComponent(uid)}/update`, { body: formData, isForm: true }),
+  
+  // 新增：删除创作者
+  adminDeleteCreator: (uid) => request('DELETE', `${API_PREFIX}/admin/creators/${encodeURIComponent(uid)}`),
+
   adminGrantPoints: (body) => request('POST', `${API_PREFIX}/admin/points/grant`, { body }),
 
   // Points & Leaderboard

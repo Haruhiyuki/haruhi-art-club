@@ -96,14 +96,12 @@ function parseLicenses(raw) {
 function mapArtworkRow(r) {
   let images = safeJsonArr(r.images_json)
   
-  // 兼容旧数据：如果 images_json 为空，构造一个包含单图的数组
   if (images.length === 0 && r.file_path) {
     images = [{
       image_url: `uploads/${r.file_path}`,
       original_url: r.file_path_original ? `uploads/${r.file_path_original}` : `uploads/${r.file_path}`
     }]
   } else {
-    // 处理多图路径
     images = images.map(img => ({
       image_url: img.path ? `uploads/${img.path}` : '',
       original_url: img.original ? `uploads/${img.original}` : (img.path ? `uploads/${img.path}` : '')
@@ -127,10 +125,9 @@ function mapArtworkRow(r) {
     review_note: r.review_note || '',
     status: r.status,
     like_total: Number(r.like_total || 0),
-    // 封面图：优先取 file_path
     image_url: r.file_path ? `uploads/${r.file_path}` : (images[0]?.image_url || ''),
     original_url: r.file_path_original ? `uploads/${r.file_path_original}` : (images[0]?.original_url || ''),
-    images: images, // 新增：多图数组
+    images: images, 
     ai_reason: r.ai_reason || ''
   }
 }
@@ -161,11 +158,12 @@ const upload = multer({
   limits: { fileSize: 24 * 1024 * 1024 }
 })
 
-// 修改：允许上传多张图片，最大20张
 const uploadFields = upload.fields([
   { name: 'images', maxCount: 20 },
   { name: 'originals', maxCount: 20 }
 ])
+
+const avatarUpload = upload.single('avatar')
 
 // --- express app setup ---
 const app = express()
@@ -270,7 +268,7 @@ app.get('/api/artworks', async (req, res) => {
   const source_type = String(req.query.source_type || 'all')
   const uploader_uid = String(req.query.uploader_uid || '').trim()
 
-  const sort = String(req.query.sort || 'time') // likes | time | random
+  const sort = String(req.query.sort || 'time') 
 
   const qRaw = String(req.query.q || '').trim()
   const searchField = String(req.query.searchField || 'all')
@@ -371,26 +369,18 @@ app.get('/api/artworks', async (req, res) => {
 app.post('/api/artworks', uploadFields, async (req, res) => {
   const db = getDb()
 
-  // --- 多图处理逻辑 ---
-  // 前端应发送 images[] 和 originals[] 两个数组，顺序对应
   const displayFiles = req.files?.['images'] || []
   const originalFiles = req.files?.['originals'] || []
 
-  // 兼容旧逻辑：如果字段名是 image/original (单数)，multer 也会放入数组
-  // 但我们这里主要处理复数情况
-  
   if (displayFiles.length === 0) {
     return res.status(400).json({ ok: false, message: '缺少图片文件' })
   }
 
-  // 构建图片列表
   const imagesList = []
   for(let i = 0; i < displayFiles.length; i++) {
     const disp = displayFiles[i]
-    // 尝试找对应的 original，如果没有则用 display 本身
     const orig = originalFiles[i] || disp
     
-    // 存储相对路径
     const relDisp = path.relative(uploadsDir, disp.path).replace(/\\/g, '/')
     const relOrig = path.relative(uploadsDir, orig.path).replace(/\\/g, '/')
     
@@ -400,11 +390,8 @@ app.post('/api/artworks', uploadFields, async (req, res) => {
     })
   }
 
-  // 封面图：取列表第一张
   const coverImage = imagesList[0]
   const imagesJson = JSON.stringify(imagesList)
-
-  // ------------------
 
   const title = safeText(req.body?.title)
   const description = safeText(req.body?.description)
@@ -416,7 +403,6 @@ app.post('/api/artworks', uploadFields, async (req, res) => {
 
   if (!title) return res.status(400).json({ ok: false, message: '作品名称为必填' })
 
-  // AI 审核逻辑 (只审核封面图和文本，节省 token)
   const textCheck = await checkText(`${title}\n${description}`)
   const imageCheck = await checkImage(path.join(uploadsDir, coverImage.path))
 
@@ -695,12 +681,10 @@ app.delete('/api/admin/artworks/:id', requireAdmin, async (req, res) => {
   const id = Number(req.params.id)
   const row = await db.get(`SELECT file_path, file_path_original, images_json FROM artworks WHERE id=?`, [id])
   if (row) {
-    // 删除所有关联文件
     const filesToDelete = []
     if (row.file_path) filesToDelete.push(row.file_path)
     if (row.file_path_original) filesToDelete.push(row.file_path_original)
     
-    // 解析 JSON 删除多图
     try {
       const imgs = JSON.parse(row.images_json || '[]')
       imgs.forEach(img => {
@@ -743,7 +727,7 @@ app.delete('/api/admin/comments/:id', requireAdmin, async (req, res) => {
 })
 
 app.get('/api/admin/creators', requireAdmin, async (req, res) => {
-  res.json({ ok: true, data: await getDb().all(`SELECT uid, avatar_url FROM creators`) })
+  res.json({ ok: true, data: await getDb().all(`SELECT uid, avatar_url, created_at FROM creators ORDER BY datetime(created_at) DESC`) })
 })
 app.post('/api/admin/creators', requireAdmin, async (req, res) => {
   const db = getDb()
@@ -753,6 +737,75 @@ app.post('/api/admin/creators', requireAdmin, async (req, res) => {
   }
   res.json({ ok: true })
 })
+
+// 新增：更新创作者 (UID 重命名 + 头像)
+app.post('/api/admin/creators/:uid/update', requireAdmin, avatarUpload, async (req, res) => {
+  const db = getDb()
+  const oldUid = req.params.uid
+  const newUid = safeText(req.body.new_uid)
+  
+  if (!oldUid) return res.status(400).json({ok: false, message: 'Missing param'})
+
+  const creator = await db.get(`SELECT * FROM creators WHERE uid=?`, [oldUid])
+  if (!creator) return res.status(404).json({ok: false, message: 'Creator not found'})
+
+  let finalUid = oldUid
+
+  // 开启事务处理重命名
+  await db.run('BEGIN TRANSACTION')
+  try {
+    // 1. 如果 UID 变更，更新所有相关表
+    if (newUid && newUid !== oldUid) {
+      // 检查新 UID 是否已存在
+      const conflict = await db.get(`SELECT 1 FROM creators WHERE uid=?`, [newUid])
+      if (conflict) {
+        throw new Error(`UID "${newUid}" already exists`)
+      }
+
+      // SQLite 更新 PK 需要级联更新 FK (如果没设 ON UPDATE CASCADE)
+      // 这里手动更新确保安全
+      await db.run(`UPDATE creators SET uid=? WHERE uid=?`, [newUid, oldUid])
+      await db.run(`UPDATE artworks SET uploader_uid=? WHERE uploader_uid=?`, [newUid, oldUid])
+      await db.run(`UPDATE points_ledger SET uid=? WHERE uid=?`, [newUid, oldUid])
+      
+      finalUid = newUid
+    }
+
+    // 2. 如果有头像上传
+    if (req.file) {
+      const relPath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/')
+      const avatarUrl = `uploads/${relPath}`
+      // 注意这里用 finalUid，因为上面可能已经改名了
+      await db.run(`UPDATE creators SET avatar_url=? WHERE uid=?`, [avatarUrl, finalUid])
+    }
+
+    await db.run('COMMIT')
+    res.json({ ok: true })
+  } catch (e) {
+    await db.run('ROLLBACK')
+    res.status(500).json({ ok: false, message: e.message })
+  }
+})
+
+// 新增：删除创作者
+app.delete('/api/admin/creators/:uid', requireAdmin, async (req, res) => {
+  const db = getDb()
+  const uid = req.params.uid
+  
+  // 仅删除 creators 表记录？还是连带作品？
+  // 暂时保留作品，将 uploader_uid 置空，或者仅仅删除账号。
+  // 通常删除账号不应轻易删除其贡献的内容，或者应由管理员手动先删内容。
+  // 这里逻辑：删除创作者记录，其作品保留但变更为"无归属"(或者前端显示时处理为未知)。
+  // 积分记录也一并删除吗？一般保留作为历史数据，或者级联删除。
+  // 这里选择简单删除 creators 表记录。
+  
+  await db.run(`DELETE FROM creators WHERE uid=?`, [uid])
+  // 可选：清理积分记录
+  // await db.run(`DELETE FROM points_ledger WHERE uid=?`, [uid])
+  
+  res.json({ ok: true })
+})
+
 app.get('/api/admin/points-ledger', requireAdmin, async (req, res) => {
   const rows = await getDb().all(`SELECT pl.uid, pl.points, pl.granted_at, pl.note, a.title AS artwork_title FROM points_ledger pl LEFT JOIN artworks a ON a.id=pl.artwork_id ORDER BY datetime(pl.granted_at) DESC`)
   res.json({ ok: true, data: rows })
