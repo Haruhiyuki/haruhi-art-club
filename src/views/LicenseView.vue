@@ -1,4 +1,8 @@
 <template>
+  <!-- 
+    Vue 3 支持多根节点，为了代码清晰，我们将主容器和弹窗分开。
+    主容器保持原样。
+  -->
   <div class="page-container">
     <div class="header">
       <div class="title-group">
@@ -6,7 +10,6 @@
         <p class="subtitle">仅展示对应援团/社团有额外授权许可的个人作品</p>
       </div>
       <div class="decoration">
-        <!-- 简单的装饰图标 -->
         <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
         </svg>
@@ -67,14 +70,21 @@
         <div class="arrow-hint">➔</div>
       </div>
     </div>
+  </div>
 
-    <!-- 详情弹窗 -->
+  <!-- 
+    核心修复：
+    使用 <Teleport to="body"> 将弹窗挂载到 body 标签下。
+    这样可以跳过 .page-container 的 backdrop-filter 产生的包含块限制，
+    确保 position: fixed 能相对于整个浏览器窗口定位。
+  -->
+  <Teleport to="body">
     <ArtworkModal
       v-model="modalOpen"
       :item="activeItem"
       @close="activeItem = null"
     />
-  </div>
+  </Teleport>
 </template>
 
 <script setup>
@@ -91,7 +101,6 @@ const activeItem = ref(null)
 async function loadData() {
   loading.value = true
   try {
-    // 假设一次拉取较多数据进行筛选，实际项目中可能需要后端支持专门的筛选参数
     const res = await api.artworksList({ 
       source_type: 'personal', 
       status: 'approved',
@@ -100,7 +109,7 @@ async function loadData() {
     
     const rawList = res.data || []
     
-    // 筛选逻辑：licenses 数组中包含以 "GROUP:" 开头的项
+    // 筛选逻辑
     list.value = rawList.filter(item => {
       const licenses = Array.isArray(item.licenses) ? item.licenses : []
       return licenses.some(l => l.startsWith('GROUP:'))
@@ -113,7 +122,6 @@ async function loadData() {
   }
 }
 
-// 提取 GROUP 授权文本
 function getGroupLicenses(item) {
   const licenses = Array.isArray(item.licenses) ? item.licenses : []
   return licenses
@@ -140,13 +148,16 @@ onMounted(() => {
 .page-container {
   max-width: 1200px;
   margin: 40px auto;
-  /* 增加内边距以适应背景框 */
   padding: 40px; 
   min-height: 80vh;
   
-  /* --- 新增：背景蒙版样式 --- */
-  background: rgba(30, 41, 59, 0.75); /* 深蓝灰色半透明背景 */
-  backdrop-filter: blur(16px);        /* 毛玻璃效果 */
+  /* 注意：这个 backdrop-filter 是导致之前弹窗定位错误的原因。
+   它创建了一个新的 Containing Block。
+   现在的解决方案是把弹窗移出去（Teleport），所以这个样式可以保留不动，
+   继续维持页面的毛玻璃美观效果。
+  */
+  background: rgba(30, 41, 59, 0.75);
+  backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -171,7 +182,7 @@ onMounted(() => {
 }
 
 .subtitle {
-  color: rgba(255,255,255,0.7); /* 稍微调亮一点 */
+  color: rgba(255,255,255,0.7);
   font-size: 14px;
 }
 
@@ -184,7 +195,6 @@ onMounted(() => {
 
 .row {
   display: grid;
-  /* 定义列宽：图 80px | 信息 自适应 | 作者 150px | 授权 40% */
   grid-template-columns: 80px 1fr 150px 2fr; 
   align-items: center;
   gap: 20px;
@@ -202,12 +212,12 @@ onMounted(() => {
 }
 
 .item-row {
-  background: rgba(255,255,255,0.08); /* 稍微增加不透明度 */
+  background: rgba(255,255,255,0.08);
   border: 1px solid rgba(255,255,255,0.05);
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  height: 84px; /* 固定高度，但不至于太高 */
+  height: 84px;
 }
 
 .item-row:hover {
@@ -216,7 +226,6 @@ onMounted(() => {
   border-color: rgba(255,255,255,0.3);
 }
 
-/* 图片列 */
 .col-img {
   display: flex;
   align-items: center;
@@ -235,7 +244,6 @@ onMounted(() => {
   object-fit: cover;
 }
 
-/* 信息列 */
 .col-info {
   overflow: hidden;
 }
@@ -256,7 +264,6 @@ onMounted(() => {
   text-overflow: ellipsis;
 }
 
-/* 作者列 */
 .auth-name {
   font-weight: 600;
   color: #a5b4fc;
@@ -267,7 +274,6 @@ onMounted(() => {
   font-family: monospace;
 }
 
-/* 授权列 */
 .col-lic {
   display: flex;
   align-items: center;
@@ -276,7 +282,7 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  max-height: 60px; /* 防止过多溢出 */
+  max-height: 60px;
   overflow: hidden;
 }
 .lic-tag {
@@ -289,7 +295,6 @@ onMounted(() => {
   line-height: 1.2;
 }
 
-/* 箭头提示 */
 .arrow-hint {
   position: absolute;
   right: 20px;
@@ -303,7 +308,6 @@ onMounted(() => {
   transform: translateX(5px);
 }
 
-/* 状态提示 */
 .loading-state, .empty-state {
   text-align: center;
   padding: 60px;
@@ -313,10 +317,8 @@ onMounted(() => {
   border-radius: 12px;
 }
 
-/* 移动端适配 */
 @media (max-width: 768px) {
   .page-container {
-    /* 调整外边距：顶部避开导航，左右留出空隙显示圆角背景 */
     margin: 80px 12px 30px;
     padding: 20px 12px; 
   }
@@ -331,19 +333,17 @@ onMounted(() => {
     padding: 16px;
   }
   
-  .header-row { display: none; } /* 手机端隐藏表头 */
+  .header-row { display: none; }
   
   .col-img { grid-area: img; }
   .col-info { grid-area: info; }
   .col-lic { grid-area: lic; }
   
-  .col-auth { 
-    display: none; /* 手机端空间不足，暂隐藏作者，弹窗里有 */
-  }
+  .col-auth { display: none; }
   
   .lic-tags {
     flex-wrap: nowrap;
-    overflow-x: auto; /* 允许横向滚动 */
+    overflow-x: auto;
     padding-bottom: 4px;
   }
   .lic-tag {
