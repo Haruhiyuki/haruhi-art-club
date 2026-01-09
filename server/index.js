@@ -95,7 +95,7 @@ function parseLicenses(raw) {
 // 映射函数：处理单图和多图逻辑
 function mapArtworkRow(r) {
   let images = safeJsonArr(r.images_json)
-  
+
   if (images.length === 0 && r.file_path) {
     images = [{
       image_url: `uploads/${r.file_path}`,
@@ -127,7 +127,7 @@ function mapArtworkRow(r) {
     like_total: Number(r.like_total || 0),
     image_url: r.file_path ? `uploads/${r.file_path}` : (images[0]?.image_url || ''),
     original_url: r.file_path_original ? `uploads/${r.file_path_original}` : (images[0]?.original_url || ''),
-    images: images, 
+    images: images,
     ai_reason: r.ai_reason || ''
   }
 }
@@ -268,7 +268,7 @@ app.get('/api/artworks', async (req, res) => {
   const source_type = String(req.query.source_type || 'all')
   const uploader_uid = String(req.query.uploader_uid || '').trim()
 
-  const sort = String(req.query.sort || 'time') 
+  const sort = String(req.query.sort || 'time')
 
   const qRaw = String(req.query.q || '').trim()
   const searchField = String(req.query.searchField || 'all')
@@ -366,6 +366,28 @@ app.get('/api/artworks', async (req, res) => {
   })
 })
 
+app.get('/api/artworks/:id', async (req, res) => {
+  const db = getDb()
+  const id = Number(req.params.id)
+  if (!Number.isFinite(id)) return res.status(400).json({ ok: false, message: 'Invalid ID' })
+
+  const row = await db.get(
+    `SELECT a.*, c.avatar_url AS uploader_avatar
+     FROM artworks a
+     LEFT JOIN creators c ON a.uploader_uid = c.uid
+     WHERE a.id = ?`,
+    [id]
+  )
+
+  if (!row) return res.status(404).json({ ok: false, message: 'Artwork not found' })
+
+  if (row.status !== 'approved' && row.uploader_uid !== req.anonId) {
+    return res.status(404).json({ ok: false, message: 'Artwork not found or restricted' })
+  }
+
+  res.json({ ok: true, data: mapArtworkRow(row) })
+})
+
 app.post('/api/artworks', uploadFields, async (req, res) => {
   const db = getDb()
 
@@ -377,13 +399,13 @@ app.post('/api/artworks', uploadFields, async (req, res) => {
   }
 
   const imagesList = []
-  for(let i = 0; i < displayFiles.length; i++) {
+  for (let i = 0; i < displayFiles.length; i++) {
     const disp = displayFiles[i]
     const orig = originalFiles[i] || disp
-    
+
     const relDisp = path.relative(uploadsDir, disp.path).replace(/\\/g, '/')
     const relOrig = path.relative(uploadsDir, orig.path).replace(/\\/g, '/')
-    
+
     imagesList.push({
       path: relDisp,
       original: relOrig
@@ -684,14 +706,14 @@ app.delete('/api/admin/artworks/:id', requireAdmin, async (req, res) => {
     const filesToDelete = []
     if (row.file_path) filesToDelete.push(row.file_path)
     if (row.file_path_original) filesToDelete.push(row.file_path_original)
-    
+
     try {
       const imgs = JSON.parse(row.images_json || '[]')
       imgs.forEach(img => {
-        if(img.path) filesToDelete.push(img.path)
-        if(img.original) filesToDelete.push(img.original)
+        if (img.path) filesToDelete.push(img.path)
+        if (img.original) filesToDelete.push(img.original)
       })
-    } catch {}
+    } catch { }
 
     filesToDelete.forEach(f => {
       const p = path.join(uploadsDir, f)
@@ -745,11 +767,11 @@ app.post('/api/admin/creators/:uid/update', requireAdmin, avatarUpload, async (r
   const oldUid = req.params.uid
   const newUid = safeText(req.body.new_uid)
   const qq = safeText(req.body.qq) // 获取 QQ 参数
-  
-  if (!oldUid) return res.status(400).json({ok: false, message: 'Missing param'})
+
+  if (!oldUid) return res.status(400).json({ ok: false, message: 'Missing param' })
 
   const creator = await db.get(`SELECT * FROM creators WHERE uid=?`, [oldUid])
-  if (!creator) return res.status(404).json({ok: false, message: 'Creator not found'})
+  if (!creator) return res.status(404).json({ ok: false, message: 'Creator not found' })
 
   let finalUid = oldUid
 
@@ -767,7 +789,7 @@ app.post('/api/admin/creators/:uid/update', requireAdmin, avatarUpload, async (r
       await db.run(`UPDATE creators SET uid=? WHERE uid=?`, [newUid, oldUid])
       await db.run(`UPDATE artworks SET uploader_uid=? WHERE uploader_uid=?`, [newUid, oldUid])
       await db.run(`UPDATE points_ledger SET uid=? WHERE uid=?`, [newUid, oldUid])
-      
+
       finalUid = newUid
     }
 

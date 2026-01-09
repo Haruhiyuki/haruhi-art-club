@@ -59,7 +59,7 @@ function fixPath(p) {
 
 function transformArtwork(a) {
   if (!a) return a
-  
+
   // 修复单图路径
   a.image_url = fixPath(a.image_url)
   a.original_url = fixPath(a.original_url)
@@ -84,6 +84,11 @@ export const api = {
   artworksList: async (params) => {
     const data = await request('GET', `${API_PREFIX}/artworks`, { params })
     if (data.data) data.data = data.data.map(transformArtwork)
+    return data
+  },
+  getArtwork: async (id) => {
+    const data = await request('GET', `${API_PREFIX}/artworks/${id}`)
+    if (data.data) data.data = transformArtwork(data.data)
     return data
   },
   creatorProfile: (uid) => request('GET', `${API_PREFIX}/creators/${encodeURIComponent(uid)}`),
@@ -141,10 +146,10 @@ export const api = {
     return data
   },
   adminAddCreator: (uid) => request('POST', `${API_PREFIX}/admin/creators`, { body: { uid } }),
-  
+
   // 新增：更新创作者信息（支持传 FormData 包含头像文件）
   adminUpdateCreator: (uid, formData) => request('POST', `${API_PREFIX}/admin/creators/${encodeURIComponent(uid)}/update`, { body: formData, isForm: true }),
-  
+
   // 新增：删除创作者
   adminDeleteCreator: (uid) => request('DELETE', `${API_PREFIX}/admin/creators/${encodeURIComponent(uid)}`),
 

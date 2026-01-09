@@ -198,6 +198,14 @@ function syncStateFromRoute(q) {
     if (target) {
       activeItem.value = target
       modalOpen.value = true
+    } else {
+      // Not in list, try fetch single
+      store.fetchArtworkById(newArtworkId).then(item => {
+        if (item) {
+          activeItem.value = item
+          modalOpen.value = true
+        }
+      })
     }
   } else {
     modalOpen.value = false

@@ -230,6 +230,25 @@ export const useGalleryStore = defineStore('gallery', {
         item.like_total = oldVal
         console.error('Like failed:', e)
       }
+    },
+
+    async fetchArtworkById(id) {
+      if (!id) return null
+
+      // 1. Try to find in current list first
+      const existing = this.list.find(i => String(i.id) === String(id))
+      if (existing) return existing
+
+      // 2. Fetch from API
+      try {
+        const res = await api.getArtwork(id)
+        if (res.ok && res.data) {
+          return res.data
+        }
+      } catch (e) {
+        console.error('Fetch specific artwork failed:', e)
+      }
+      return null
     }
   }
 })
