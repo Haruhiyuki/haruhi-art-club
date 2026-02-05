@@ -89,7 +89,7 @@
 
                 <div class="info-card">
                   <p>进行创作者注册才能获取唯一ID，并允许上传个人作品哦！</p>
-                  <p class="sub-info">可加入绘画部联系 <strong>律纪</strong> 或 <strong>阿笑</strong> 成为创作者🥰～<br>绘画部群号：627992968，阿笑QQ：2452812504，律纪QQ：3105285630</p>
+                  <p class="sub-info">可加入绘画部联系 <strong>律纪</strong> 或 <strong>阿笑</strong> 成为创作者🥰～<br>绘画部群号：627992968，阿笑QQ：2452812504，律纪QQ：3105285630<br>进行创作者注册主要是为了避免冒领身份和过滤AI作品</p>
                 </div>
               </div>
             </div>
