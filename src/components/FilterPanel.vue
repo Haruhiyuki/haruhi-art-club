@@ -7,11 +7,21 @@
           <div
             class="slider-bg"
             :class="{
-              'pos-0': content === 'haruhi',
-              'pos-1': content === 'other'
+              'pos-0': content === 'mix',
+              'pos-1': content === 'haruhi',
+              'pos-2': content === 'other'
             }"
           ></div>
 
+          <button
+            class="toggle-item"
+            :class="{ active: content === 'mix' }"
+            type="button"
+            data-sfx="click"
+            @click="emit('update:content', 'mix')"
+          >
+            混合
+          </button>
           <button
             class="toggle-item"
             :class="{ active: content === 'haruhi' }"
@@ -169,7 +179,7 @@
 import { computed } from 'vue'
 
 const props = defineProps({
-  content: { type: String, default: 'haruhi' },
+  content: { type: String, default: 'mix' },
   sourceMode: { type: String, default: 'all' },
   sortMode: { type: String, default: 'random' },
   q: { type: String, default: '' },
@@ -269,7 +279,7 @@ function onSortTrackClick(e) {
   width: auto;
 }
 
-.content-track { grid-template-columns: 1fr 1fr; width: 140px; }
+.content-track { grid-template-columns: 1fr 1fr 1fr; width: 200px; }
 .source-track { grid-template-columns: 1fr 1fr 1fr; width: 200px; }
 
 /* 排序：自适应宽度 */
@@ -295,9 +305,10 @@ function onSortTrackClick(e) {
 }
 
 /* 滑块位置 */
-.content-track .slider-bg { width: calc(50% - 4px); left: 4px; }
+.content-track .slider-bg { width: calc((100% - 8px) / 3); left: 4px; }
 .content-track .slider-bg.pos-0 { transform: translateX(0%); }
 .content-track .slider-bg.pos-1 { transform: translateX(100%); }
+.content-track .slider-bg.pos-2 { transform: translateX(200%); }
 
 .source-track .slider-bg { width: calc((100% - 8px) / 3); left: 4px; }
 .source-track .slider-bg.pos-0 { transform: translateX(0%); }
@@ -461,7 +472,7 @@ function onSortTrackClick(e) {
   }
 
   .slider-bg { top: 2px; bottom: 2px; }
-  .content-track .slider-bg { width: calc(50% - 2px); left: 2px; }
+  .content-track .slider-bg { width: calc((100% - 4px) / 3); left: 2px; }
   .source-track .slider-bg { width: calc((100% - 4px) / 3); left: 2px; }
   .sort-track .slider-bg { width: calc((100% - 4px) / 3); left: 2px; }
 

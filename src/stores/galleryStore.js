@@ -5,12 +5,13 @@ import { seedArtworks } from '../mock/seedData.js'
 function norm(s) { return String(s || '').toLowerCase() }
 function includesWord(hay, q) { return norm(hay).includes(norm(q)) }
 
-function filterLocal(items, { content = 'haruhi', sourceMode = 'all', q = '', searchField = 'all' }) {
+function filterLocal(items, { content = 'mix', sourceMode = 'all', q = '', searchField = 'all' }) {
   let arr = items.filter(x => x.status === 'approved')
 
   if (content === 'haruhi' || content === 'other') {
     arr = arr.filter(x => x.content_type === content)
   }
+  // 'mix' -> no filter (show all)
 
   if (sourceMode === 'personal' || sourceMode === 'network') {
     arr = arr.filter(x => x.source_type === sourceMode)
@@ -85,7 +86,7 @@ function applyLocalSort(arr, sortMode, seed) {
 
 export const useGalleryStore = defineStore('gallery', {
   state: () => ({
-    content: 'haruhi',
+    content: 'mix',
     sourceMode: 'all', // all | personal | network （balanced 若存在会按 all 处理）
 
     sortMode: 'time', // random | likes | time
@@ -135,12 +136,15 @@ export const useGalleryStore = defineStore('gallery', {
         // ✅ 统一走后端排序（跨页）
         const params = {
           status: 'approved',
-          content_type: this.content,
+          // content_type: this.content, // moved to logic below
           q: this.q,
           searchField: this.searchField,
           page: this.page,
-          page: this.page,
           pageSize: this.limit
+        }
+
+        if (this.content !== 'mix') {
+          params.content_type = this.content
         }
 
         console.log('[GalleryStore] loading...', { sort: this.sortMode, seed: this.randomSeed, reqId: currentReqId })
@@ -236,19 +240,38 @@ export const useGalleryStore = defineStore('gallery', {
       if (!id) return null
 
       // 1. Try to find in current list first
-      const existing = this.list.find(i => String(i.id) === String(id))
-      if (existing) return existing
+      let existing = this.list.find(i => String(i.id) === String(id))
+
+      // If we found it, but it looks "incomplete" (missing images array for a multi-image post),
+      // or we just want to be sure, we might want to fetch details.
+      // For now, let's say if `images` is missing or empty, we fetch. 
+      // (Note: simple posts might strictly have no images array if the backend doesn't send it, 
+      // but usually the backend should send it if we ask for detail).
+      if (existing) {
+        // If it already has images populated, return it directly
+        if (Array.isArray(existing.images) && existing.images.length > 0) {
+          return existing
+        }
+        // If it's a seed data item (negative ID usually or just local), we might not be able to fetch
+        // But for real items, we should fetch.
+      }
 
       // 2. Fetch from API
       try {
         const res = await api.getArtwork(id)
         if (res.ok && res.data) {
+          // Update the list item if it exists, so the grid also gets updated info if needed
+          if (existing) {
+            Object.assign(existing, res.data)
+          }
           return res.data
         }
       } catch (e) {
         console.error('Fetch specific artwork failed:', e)
       }
-      return null
+
+      // Fallback: if API failed but we have existing (incomplete) item, return that
+      return existing || null
     }
   }
 })

@@ -194,19 +194,14 @@ function syncStateFromRoute(q) {
 
   // C. 处理详情弹窗
   if (newArtworkId) {
-    const target = store.list.find(i => String(i.id) === String(newArtworkId))
-    if (target) {
-      activeItem.value = target
-      modalOpen.value = true
-    } else {
-      // Not in list, try fetch single
-      store.fetchArtworkById(newArtworkId).then(item => {
-        if (item) {
-          activeItem.value = item
-          modalOpen.value = true
-        }
-      })
-    }
+    // Always fetch detail to ensure we have full images list (and comments etc.)
+    // The store handles caching/optimization internally now
+    store.fetchArtworkById(newArtworkId).then(item => {
+      if (item) {
+        activeItem.value = item
+        modalOpen.value = true
+      }
+    })
   } else {
     modalOpen.value = false
     activeItem.value = null
