@@ -232,30 +232,30 @@ function onSortTrackClick(e) {
    通用样式 (电脑端优先)
    ========================================= */
 .filter-panel-3d {
-  padding: 16px 0;
+  padding: 12px 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 18px;
-  margin-top: 20px;
+  gap: 12px; /* reduced gap */
+  margin-bottom: 16px;
+  margin-top: 16px;
 
   /* ✅ 防止被其它层盖住导致“点不到” */
   position: relative;
   z-index: 50;
 }
 
-.panel-group { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
-.control-box { display: flex; align-items: center; gap: 10px; }
-.c-label { font-weight: 950; opacity: .78; font-size: 17px; letter-spacing: .3px; }
+.panel-group { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; } /* reduced gap */
+.control-box { display: flex; align-items: center; gap: 8px; } /* reduced gap */
+.c-label { font-weight: 950; opacity: .78; font-size: 16px; letter-spacing: .2px; } /* slightly smaller font */
 
 /* 轨道样式 */
 .toggle-track {
   position: relative;
   display: grid;
   background: rgba(255,255,255,.5);
-  padding: 4px;
+  padding: 3px; /* reduced padding */
   border-radius: 999px;
   border: 1px solid rgb(95, 215, 226);
   isolation: isolate;
@@ -279,21 +279,21 @@ function onSortTrackClick(e) {
   width: auto;
 }
 
-.content-track { grid-template-columns: 1fr 1fr 1fr; width: 200px; }
-.source-track { grid-template-columns: 1fr 1fr 1fr; width: 200px; }
+.content-track { grid-template-columns: 1fr 1fr 1fr; width: 170px; } /* reduced width */
+.source-track { grid-template-columns: 1fr 1fr 1fr; width: 170px; } /* reduced width */
 
 /* 排序：自适应宽度 */
 .sort-track{
   grid-template-columns: 1fr 1fr 1fr;
-  width: clamp(200px, 28vw, 280px);
+  width: clamp(180px, 24vw, 240px); /* reduced clamp */
   max-width: 100%;
 }
 
 /* 滑块样式 */
 .slider-bg {
   position: absolute;
-  top: 4px;
-  bottom: 4px;
+  top: 3px; /* adjusted for padding */
+  bottom: 3px;
   background: rgba(192, 120, 241, 0.991);
   border-radius: 999px;
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -305,17 +305,17 @@ function onSortTrackClick(e) {
 }
 
 /* 滑块位置 */
-.content-track .slider-bg { width: calc((100% - 8px) / 3); left: 4px; }
+.content-track .slider-bg { width: calc((100% - 6px) / 3); left: 3px; }
 .content-track .slider-bg.pos-0 { transform: translateX(0%); }
 .content-track .slider-bg.pos-1 { transform: translateX(100%); }
 .content-track .slider-bg.pos-2 { transform: translateX(200%); }
 
-.source-track .slider-bg { width: calc((100% - 8px) / 3); left: 4px; }
+.source-track .slider-bg { width: calc((100% - 6px) / 3); left: 3px; }
 .source-track .slider-bg.pos-0 { transform: translateX(0%); }
 .source-track .slider-bg.pos-1 { transform: translateX(100%); }
 .source-track .slider-bg.pos-2 { transform: translateX(200%); }
 
-.sort-track .slider-bg { width: calc((100% - 8px) / 3); left: 4px; }
+.sort-track .slider-bg { width: calc((100% - 6px) / 3); left: 3px; }
 .sort-track .slider-bg.pos-0 { transform: translateX(0%); }
 .sort-track .slider-bg.pos-1 { transform: translateX(100%); }
 .sort-track .slider-bg.pos-2 { transform: translateX(200%); }
@@ -326,9 +326,9 @@ function onSortTrackClick(e) {
   z-index: 2;
   border: none;
   background: transparent;
-  padding: 6px 0;
+  padding: 5px 0; /* reduced padding */
   font-weight: 900;
-  font-size: 15px;
+  font-size: 14px; /* slightly smaller font */
   color: rgba(0,0,0,.6);
   border-radius: 999px;
   cursor: pointer;
@@ -345,7 +345,7 @@ function onSortTrackClick(e) {
 }
 
 .sort-item{
-  padding: 6px 8px;
+  padding: 5px 6px;
   white-space: normal;
   line-height: 1.1;
   word-break: keep-all;

@@ -19,7 +19,7 @@
         <transition :name="slideDirection">
           <img 
             :key="currentIndex"
-            :src="currentImgSrc" 
+            :src="displaySrc" 
             :alt="art?.title || 'artwork'" 
             :style="imageTransformStyle"
             class="zoomable-image"
@@ -234,6 +234,29 @@ const images = computed(() => {
 
 const currentImgSrc = computed(() => images.value[currentIndex.value]?.image_url || '')
 const currentOriginalUrl = computed(() => images.value[currentIndex.value]?.original_url || '')
+
+// --- 渐进式加载逻辑 ---
+const displaySrc = ref('')
+
+watch([currentIndex, art], () => {
+  // 1. 立即显示缩略图/压缩图
+  const lowRes = currentImgSrc.value
+  displaySrc.value = lowRes
+  
+  // 2. 后台加载原图
+  const highRes = currentOriginalUrl.value
+  if (highRes && highRes !== lowRes) {
+    const img = new Image()
+    img.src = highRes
+    img.onload = () => {
+      // 只有当当前应该显示的图片仍是这张原图时，才进行替换
+      // 防止快速切换时，上一张的原图加载完成覆盖了当前图
+      if (currentOriginalUrl.value === highRes) {
+        displaySrc.value = highRes
+      }
+    }
+  }
+}, { immediate: true })
 
 // 切换图片
 function nextImage() {
@@ -639,6 +662,7 @@ onMounted(() => {
   border: 2px solid transparent;
   background: linear-gradient(45deg, var(--vine-green), transparent 40%, transparent 60%, var(--vine-green)) border-box; 
   -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   opacity: 0.5;
@@ -736,7 +760,7 @@ onMounted(() => {
   /* 移除混合模式以免影响查看原图细节，或者在非expanded模式下保留 */
   /* mix-blend-mode: multiply; */
   transform-origin: center center;
-  will-change: transform;
+  /* will-change: transform; removed to fix blurry scaling on some browsers */
 }
 
 /* --- 悬浮导航箭头 --- */
