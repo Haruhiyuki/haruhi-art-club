@@ -279,21 +279,21 @@ function onSortTrackClick(e) {
   width: auto;
 }
 
-.content-track { grid-template-columns: 1fr 1fr 1fr; width: 170px; } /* reduced width */
-.source-track { grid-template-columns: 1fr 1fr 1fr; width: 170px; } /* reduced width */
+.content-track { grid-template-columns: 1fr 1fr 1fr; width: 150px; } /* reduced width */
+.source-track { grid-template-columns: 1fr 1fr 1fr; width: 150px; } /* reduced width */
 
 /* 排序：自适应宽度 */
 .sort-track{
   grid-template-columns: 1fr 1fr 1fr;
-  width: clamp(180px, 24vw, 240px); /* reduced clamp */
+  width: clamp(160px, 22vw, 220px); /* reduced clamp */
   max-width: 100%;
 }
 
 /* 滑块样式 */
 .slider-bg {
   position: absolute;
-  top: 3px; /* adjusted for padding */
-  bottom: 3px;
+  top: 2px; /* adjusted for padding */
+  bottom: 2px;
   background: rgba(192, 120, 241, 0.991);
   border-radius: 999px;
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -326,9 +326,9 @@ function onSortTrackClick(e) {
   z-index: 2;
   border: none;
   background: transparent;
-  padding: 5px 0; /* reduced padding */
+  padding: 4px 0; /* reduced padding */
   font-weight: 900;
-  font-size: 14px; /* slightly smaller font */
+  font-size: 13px; /* slightly smaller font */
   color: rgba(0,0,0,.6);
   border-radius: 999px;
   cursor: pointer;

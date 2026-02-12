@@ -19,7 +19,14 @@ const router = createRouter({
     // fallback
     { path: '/:pathMatch(.*)*', redirect: '/' }
   ],
-  scrollBehavior() {
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) {
+      return savedPosition
+    }
+    // 如果只是 query 变化 (例如打开/关闭详情弹窗)，不重置滚动条
+    if (to.path === from.path) {
+      return false
+    }
     return { top: 0 }
   }
 })
