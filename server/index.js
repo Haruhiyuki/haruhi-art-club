@@ -155,7 +155,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 24 * 1024 * 1024 }
+  limits: { fileSize: 100 * 1024 * 1024 }
 })
 
 const uploadFields = upload.fields([
@@ -832,6 +832,17 @@ app.post('/api/admin/points/grant', requireAdmin, async (req, res) => {
 })
 
 await initDb(DB_PATH)
+
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ ok: false, message: '文件大小超过限制 (100MB)' })
+    }
+  }
+  console.error('Unhandled error:', err)
+  res.status(500).json({ ok: false, message: 'Internal Server Error' })
+})
+
 app.listen(API_PORT, '127.0.0.1', () => {
   console.log(`[api] listening on http://127.0.0.1:${API_PORT}`)
 })
