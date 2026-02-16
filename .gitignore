@@ -21,3 +21,4 @@ server/uploads/**/*
 Thumbs.db
 convert_webp.py
 server/data.sqlite
+work.md

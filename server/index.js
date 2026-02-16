@@ -689,12 +689,26 @@ app.post('/api/admin/artworks/:id/status', requireAdmin, async (req, res) => {
 app.post('/api/admin/artworks/:id/update', requireAdmin, async (req, res) => {
   const db = getDb()
   const id = Number(req.params.id)
-  const { title, description, tags } = req.body
+  const {
+    title, description, tags,
+    uploader_name, uploader_uid, source_type, content_type, origin_url, licenses
+  } = req.body
+
   const tagsArr = normalizeTagsToArray(tags)
   const tags_json = JSON.stringify(tagsArr)
   const tags_norm = makeTagsNorm(tagsArr)
-  await db.run(`UPDATE artworks SET title=?, description=?, tags_json=?, tags_norm=? WHERE id=?`,
-    [title, description, tags_json, tags_norm, id]
+
+  const licensesArr = parseLicenses(licenses)
+  const licenses_json = JSON.stringify(licensesArr)
+
+  await db.run(`
+    UPDATE artworks 
+    SET title=?, description=?, tags_json=?, tags_norm=?,
+        uploader_name=?, uploader_uid=?, source_type=?, content_type=?, origin_url=?, licenses_json=?
+    WHERE id=?`,
+    [title, description, tags_json, tags_norm,
+      uploader_name, uploader_uid, source_type, content_type, origin_url, licenses_json,
+      id]
   )
   res.json({ ok: true })
 })

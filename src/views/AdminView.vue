@@ -76,11 +76,50 @@
                   <div class="m-desc">{{ it.description }}</div>
                   
                   <!-- 编辑器 -->
-                  <div v-if="editingId === it.id" class="inline-editor">
-                    <input v-model="editForm.title" class="input sm" placeholder="标题">
+                  <div v-if="editingId === it.id" class="inline-editor expanded">
+                    <div class="editor-row">
+                      <input v-model="editForm.title" class="input sm" placeholder="标题">
+                      <input v-model="editForm.tags" class="input sm" placeholder="标签 (空格分隔)">
+                    </div>
                     <textarea v-model="editForm.description" class="textarea sm" placeholder="描述"></textarea>
+                    
+                    <div class="editor-row">
+                      <select v-model="editForm.source_type" class="select sm">
+                        <option value="personal">个人作品</option>
+                        <option value="network">网络收集</option>
+                      </select>
+                      <select v-model="editForm.content_type" class="select sm">
+                        <option value="haruhi">凉宫内容</option>
+                        <option value="other">非凉宫内容</option>
+                      </select>
+                    </div>
+
+                    <div class="editor-row">
+                      <input v-model="editForm.uploader_name" class="input sm" placeholder="上传者名称">
+                      <input v-model="editForm.uploader_uid" class="input sm" placeholder="上传者 UID">
+                    </div>
+                    
+                    <div class="editor-row">
+                      <input v-model="editForm.origin_url" class="input sm" placeholder="来源链接 (URL)" style="flex:1">
+                    </div>
+
+                    <div class="editor-licenses">
+                      <div class="lic-group">
+                        <div class="lic-title">公开授权</div>
+                        <label v-for="opt in NET_LICENSE_OPTIONS" :key="opt" class="chk-item">
+                          <input type="checkbox" :value="opt" v-model="editForm.netLicenses"> {{ opt }}
+                        </label>
+                      </div>
+                      <div class="lic-group">
+                        <div class="lic-title">社团授权</div>
+                        <label v-for="opt in GROUP_LICENSE_OPTIONS" :key="opt" class="chk-item">
+                          <input type="checkbox" :value="opt" v-model="editForm.groupLicenses"> {{ opt }}
+                        </label>
+                      </div>
+                    </div>
+
                     <div class="btns">
-                      <button class="btn sm" @click="saveEdit(it)">保存</button>
+                      <button class="btn sm" @click="saveEdit(it)">💾 保存修改</button>
                       <button class="btn-ghost sm" @click="editingId=null">取消</button>
                     </div>
                   </div>
@@ -135,11 +174,50 @@
                   </div>
                   <div class="m-desc">{{ it.description }}</div>
                   
-                  <div v-if="editingId === it.id" class="inline-editor">
-                    <input v-model="editForm.title" class="input sm" placeholder="标题">
+                  <div v-if="editingId === it.id" class="inline-editor expanded">
+                    <div class="editor-row">
+                      <input v-model="editForm.title" class="input sm" placeholder="标题">
+                      <input v-model="editForm.tags" class="input sm" placeholder="标签 (空格分隔)">
+                    </div>
                     <textarea v-model="editForm.description" class="textarea sm" placeholder="描述"></textarea>
+
+                    <div class="editor-row">
+                      <select v-model="editForm.source_type" class="select sm">
+                        <option value="personal">个人作品</option>
+                        <option value="network">网络收集</option>
+                      </select>
+                      <select v-model="editForm.content_type" class="select sm">
+                        <option value="haruhi">凉宫内容</option>
+                        <option value="other">非凉宫内容</option>
+                      </select>
+                    </div>
+
+                    <div class="editor-row">
+                      <input v-model="editForm.uploader_name" class="input sm" placeholder="上传者名称">
+                      <input v-model="editForm.uploader_uid" class="input sm" placeholder="上传者 UID">
+                    </div>
+
+                    <div class="editor-row">
+                      <input v-model="editForm.origin_url" class="input sm" placeholder="来源链接 (URL)" style="flex:1">
+                    </div>
+                    
+                    <div class="editor-licenses">
+                      <div class="lic-group">
+                        <div class="lic-title">公开授权</div>
+                        <label v-for="opt in NET_LICENSE_OPTIONS" :key="opt" class="chk-item">
+                          <input type="checkbox" :value="opt" v-model="editForm.netLicenses"> {{ opt }}
+                        </label>
+                      </div>
+                      <div class="lic-group">
+                        <div class="lic-title">社团授权</div>
+                        <label v-for="opt in GROUP_LICENSE_OPTIONS" :key="opt" class="chk-item">
+                          <input type="checkbox" :value="opt" v-model="editForm.groupLicenses"> {{ opt }}
+                        </label>
+                      </div>
+                    </div>
+
                     <div class="btns">
-                      <button class="btn sm" @click="saveEdit(it)">保存</button>
+                      <button class="btn sm" @click="saveEdit(it)">💾 保存修改</button>
                       <button class="btn-ghost sm" @click="editingId=null">取消</button>
                     </div>
                   </div>
@@ -361,7 +439,25 @@ const approvedList = ref([])
 const artListPage = ref(1)
 const artListFilter = ref({ content: 'all', source: 'all', q: '' })
 const editingId = ref(null)
-const editForm = ref({ title: '', description: '', tags: '' })
+const editForm = ref({ 
+  title: '', description: '', tags: '', 
+  uploader_name: '', uploader_uid: '', 
+  source_type: 'personal', content_type: 'haruhi', origin_url: '',
+  netLicenses: [], groupLicenses: []
+})
+
+const NET_LICENSE_OPTIONS = [
+  '可在b站、小红书等社交媒体转载',
+  '允许用于视频等个人创作',
+  '允许用于制作无料发放'
+]
+
+const GROUP_LICENSE_OPTIONS = [
+  '允许应援团社交媒体官方账号转载',
+  '允许用于应援团官方视频/游戏等创作企划',
+  '允许制作无料周边发放',
+  '允许制作贩售周边'
+]
 const notes = ref({}) // 审核备注
 const showPreview = ref(false)
 const previewItem = ref(null)
@@ -489,13 +585,45 @@ function startEdit(it) {
   editForm.value = {
     title: it.title,
     description: it.description,
-    tags: Array.isArray(it.tags) ? it.tags.join(' ') : ''
+    tags: Array.isArray(it.tags) ? it.tags.join(' ') : '',
+    uploader_name: it.uploader_name || '',
+    uploader_uid: it.uploader_uid || '',
+    source_type: it.source_type || 'personal',
+    content_type: it.content_type || 'haruhi',
+    origin_url: it.origin_url || '',
+    netLicenses: [],
+    groupLicenses: []
+  }
+  
+  if (Array.isArray(it.licenses)) {
+    it.licenses.forEach(l => {
+      if (l.startsWith('NET:')) editForm.value.netLicenses.push(l.replace('NET:', ''))
+      if (l.startsWith('GROUP:')) editForm.value.groupLicenses.push(l.replace('GROUP:', ''))
+    })
   }
 }
 async function saveEdit(it) {
-  await api.adminUpdateArtworkDetails(it.id, editForm.value)
+  const payload = {
+    ...editForm.value,
+    licenses: JSON.stringify([
+      ...editForm.value.netLicenses.map(x => `NET:${x}`),
+      ...editForm.value.groupLicenses.map(x => `GROUP:${x}`)
+    ])
+  }
+  await api.adminUpdateArtworkDetails(it.id, payload)
+  
+  // 更新本地数据
   it.title = editForm.value.title
   it.description = editForm.value.description
+  it.uploader_name = editForm.value.uploader_name
+  it.uploader_uid = editForm.value.uploader_uid
+  it.source_type = editForm.value.source_type
+  it.content_type = editForm.value.content_type
+  it.origin_url = editForm.value.origin_url
+  it.licenses = [
+      ...editForm.value.netLicenses.map(x => `NET:${x}`),
+      ...editForm.value.groupLicenses.map(x => `GROUP:${x}`)
+  ]
   editingId.value = null
 }
 
@@ -899,4 +1027,14 @@ onMounted(async () => {
 .ph-val.neg { color: #dc2626; }
 .ph-reason { flex: 1; color: #374151; }
 .empty-ph { padding: 24px; text-align: center; color: #9ca3af; font-size: 13px; }
+
+/* Expanded Editor Styles */
+.inline-editor.expanded { gap: 12px; }
+.editor-row { display: flex; gap: 8px; }
+.editor-licenses { display: flex; flex-direction: column; gap: 8px; background: #fff; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px; }
+.lic-group { display: flex; flex-direction: column; gap: 4px; }
+.lic-title { font-size: 11px; font-weight: bold; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+.chk-item { font-size: 12px; display: flex; align-items: center; gap: 6px; color: #374151; cursor: pointer; }
+.chk-item:hover { color: #111; }
+
 </style>
