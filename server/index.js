@@ -338,12 +338,15 @@ app.get('/api/artworks', async (req, res) => {
     if (seedQ !== undefined && seedQ !== null && String(seedQ).trim() !== '') {
       seedUsed = clampInt(seedQ, 0, 2147483647, 0)
     } else {
-      const anonId = String(req.anonId || '0')
-      const seedBuf = crypto.createHash('sha256').update(anonId).digest()
-      seedUsed = (seedBuf.readUInt32LE(0) >>> 0) & 0x7fffffff
+      // Use crypto for strong entropy per-session
+      seedUsed = crypto.randomInt(0, 2147483647)
     }
-    orderBy = `ORDER BY ((a.id + ?) * 1103515245) % 2147483647 ASC, a.id ASC`
-    orderParams.push(seedUsed)
+    // Multi-round xorshift+multiply hash for strong decorrelation of sequential IDs
+    // Based on splitmix32 / murmur finalizer principles
+    orderBy = `ORDER BY (
+      (((((((a.id + ?) * 374761393) & 0x7fffffff) ^ ((((a.id + ?) * 374761393) & 0x7fffffff) >> 15)) * 2246822519) & 0x7fffffff) ^ (((((((a.id + ?) * 374761393) & 0x7fffffff) ^ ((((a.id + ?) * 374761393) & 0x7fffffff) >> 15)) * 2246822519) & 0x7fffffff) >> 13))
+    ) ASC, a.id ASC`
+    orderParams.push(seedUsed, seedUsed, seedUsed, seedUsed)
   }
 
   const rows = await db.all(
