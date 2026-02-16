@@ -49,12 +49,15 @@ function paginate(arr, page, pageSize) {
   return { total, data: arr.slice(start, start + pageSize) }
 }
 
-// 本地稳定随机排序（fallback 用）— splitmix32 风格多轮哈希
+// Multiplicative LCG fallback
 function stableRandKey(id, seed) {
-  let h = ((Number(id) + Number(seed)) * 374761393) & 0x7fffffff
-  h = ((h ^ (h >>> 15)) * 2246822519) & 0x7fffffff
-  h = h ^ (h >>> 13)
-  return h
+  // ((ID * Seed) + Const) % Prime
+  // Use BigInt to avoid overflow during multiplication if needed,
+  // though JS double can handle 53-bit integers safely.
+  // Max product ~ 2e9 * 2e9 = 4e18 which is > 2^53.
+  // Actually SQLite is 64-bit signed. JS needs BigInt for 64-bit safety.
+  const res = (BigInt(id) * BigInt(seed) + 1234567n) % 2147483647n
+  return Number(res)
 }
 
 function applyLocalSort(arr, sortMode, seed) {
@@ -85,22 +88,18 @@ function applyLocalSort(arr, sortMode, seed) {
   return out
 }
 
-function generateRandomSeed() {
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    const arr = new Uint32Array(1)
-    crypto.getRandomValues(arr)
-    return arr[0] & 0x7fffffff
-  }
-  return ((Date.now() * 1103515245 + 12345) >>> 0) & 0x7fffffff
-}
-
 export const useGalleryStore = defineStore('gallery', {
   state: () => ({
     content: 'mix',
     sourceMode: 'all', // all | personal | network （balanced 若存在会按 all 处理）
 
     sortMode: 'time', // random | likes | time
-    randomSeed: generateRandomSeed(),
+    randomSeed: (() => {
+      const arr = new Uint32Array(1)
+      if (window.crypto) window.crypto.getRandomValues(arr)
+      else arr[0] = Date.now()
+      return (arr[0] & 0x7fffffff) || 1
+    })(),
 
     q: '',
     searchField: 'all',
@@ -127,7 +126,7 @@ export const useGalleryStore = defineStore('gallery', {
         this.sortMode = patch.sortMode
         if (patch.sortMode === 'random') {
           // 切回随机时也可刷新 seed，让用户感觉“换一批”
-          this.randomSeed = generateRandomSeed()
+          this.randomSeed = ((Date.now() & 0x7fffffff) >>> 0)
         }
       }
       if (patch.q !== undefined) this.q = patch.q

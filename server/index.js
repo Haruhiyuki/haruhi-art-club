@@ -338,15 +338,12 @@ app.get('/api/artworks', async (req, res) => {
     if (seedQ !== undefined && seedQ !== null && String(seedQ).trim() !== '') {
       seedUsed = clampInt(seedQ, 0, 2147483647, 0)
     } else {
-      // Use crypto for strong entropy per-session
-      seedUsed = crypto.randomInt(0, 2147483647)
+      seedUsed = crypto.randomInt(1, 2147483647)
     }
-    // Multi-round xorshift+multiply hash for strong decorrelation of sequential IDs
-    // Based on splitmix32 / murmur finalizer principles
-    orderBy = `ORDER BY (
-      (((((((a.id + ?) * 374761393) & 0x7fffffff) ^ ((((a.id + ?) * 374761393) & 0x7fffffff) >> 15)) * 2246822519) & 0x7fffffff) ^ (((((((a.id + ?) * 374761393) & 0x7fffffff) ^ ((((a.id + ?) * 374761393) & 0x7fffffff) >> 15)) * 2246822519) & 0x7fffffff) >> 13))
-    ) ASC, a.id ASC`
-    orderParams.push(seedUsed, seedUsed, seedUsed, seedUsed)
+    // Using multiplicative LCG: ((ID * Seed) + Const) % Prime
+    // This shuffles the order effectively when Seed changes, unlike additive which just shifts it.
+    orderBy = `ORDER BY ((a.id * ?) + 1234567) % 2147483647 ASC, a.id ASC`
+    orderParams.push(seedUsed)
   }
 
   const rows = await db.all(
