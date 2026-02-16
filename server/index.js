@@ -338,12 +338,13 @@ app.get('/api/artworks', async (req, res) => {
     if (seedQ !== undefined && seedQ !== null && String(seedQ).trim() !== '') {
       seedUsed = clampInt(seedQ, 0, 2147483647, 0)
     } else {
-      seedUsed = crypto.randomInt(1, 2147483647)
+      // No seed provided → generate a truly random one per request
+      seedUsed = crypto.randomInt(0, 2147483647)
     }
-    // Using multiplicative LCG: ((ID * Seed) + Const) % Prime
-    // This shuffles the order effectively when Seed changes, unlike additive which just shifts it.
-    orderBy = `ORDER BY ((a.id * ?) + 1234567) % 2147483647 ASC, a.id ASC`
-    orderParams.push(seedUsed)
+    // XOR-based mixing: (a XOR b) = a + b - 2*(a & b) in SQLite
+    // Two rounds of multiply-mod break all linear correlation between seeds
+    orderBy = `ORDER BY (((a.id + ? - 2 * (a.id & ?)) * 2654435761) % 2147483647 + 1) * 1103515245 % 2147483647 ASC`
+    orderParams.push(seedUsed, seedUsed)
   }
 
   const rows = await db.all(

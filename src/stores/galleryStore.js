@@ -49,15 +49,12 @@ function paginate(arr, page, pageSize) {
   return { total, data: arr.slice(start, start + pageSize) }
 }
 
-// Multiplicative LCG fallback
+// 本地稳定随机排序（fallback 用）
 function stableRandKey(id, seed) {
-  // ((ID * Seed) + Const) % Prime
-  // Use BigInt to avoid overflow during multiplication if needed,
-  // though JS double can handle 53-bit integers safely.
-  // Max product ~ 2e9 * 2e9 = 4e18 which is > 2^53.
-  // Actually SQLite is 64-bit signed. JS needs BigInt for 64-bit safety.
-  const res = (BigInt(id) * BigInt(seed) + 1234567n) % 2147483647n
-  return Number(res)
+  // XOR then two rounds of multiply — matches backend SQL hash
+  const xor = ((id | 0) + (seed | 0) - 2 * ((id | 0) & (seed | 0))) >>> 0
+  const h1 = Math.imul(xor, 2654435761) >>> 0
+  return (Math.imul((h1 % 2147483647) + 1, 1103515245) >>> 0) % 2147483647
 }
 
 function applyLocalSort(arr, sortMode, seed) {
@@ -94,12 +91,7 @@ export const useGalleryStore = defineStore('gallery', {
     sourceMode: 'all', // all | personal | network （balanced 若存在会按 all 处理）
 
     sortMode: 'time', // random | likes | time
-    randomSeed: (() => {
-      const arr = new Uint32Array(1)
-      if (window.crypto) window.crypto.getRandomValues(arr)
-      else arr[0] = Date.now()
-      return (arr[0] & 0x7fffffff) || 1
-    })(),
+    randomSeed: Math.floor(Math.random() * 2147483647),
 
     q: '',
     searchField: 'all',
@@ -125,8 +117,7 @@ export const useGalleryStore = defineStore('gallery', {
       if (patch.sortMode !== undefined) {
         this.sortMode = patch.sortMode
         if (patch.sortMode === 'random') {
-          // 切回随机时也可刷新 seed，让用户感觉“换一批”
-          this.randomSeed = ((Date.now() & 0x7fffffff) >>> 0)
+          this.randomSeed = Math.floor(Math.random() * 2147483647)
         }
       }
       if (patch.q !== undefined) this.q = patch.q
