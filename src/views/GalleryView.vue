@@ -90,18 +90,18 @@ const sortLabel = computed(() => {
 })
 
 // --- 翻页处理 ---
-function handlePrevPage() {
+async function handlePrevPage() {
   if (store.page > 1) {
     store.page--
-    store.load()
+    await store.load()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 }
 
-function handleNextPage() {
+async function handleNextPage() {
   if (store.hasMore) {
     store.page++
-    store.load()
+    await store.load()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 }
