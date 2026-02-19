@@ -333,7 +333,6 @@ function onImgLoad(item, e) {
   margin: 0 auto;
 
   transform: translateZ(0);
-  will-change: transform;
 }
 
 .art-card:hover {
@@ -349,30 +348,23 @@ function onImgLoad(item, e) {
 /* =========================
    Media: 悬浮图片层 (Z=24px)
 ========================= */
-@keyframes float-img {
-  0%, 100% { transform: translateZ(24px) translateY(-20px) scale(1.02); }
-  50% { transform: translateZ(24px) translateY(-26px) scale(1.02); } 
-}
-
 .art-card__media {
   position: relative;
   aspect-ratio: 4 / 3;
-  width: 110%; 
-  margin-left: -5%; 
-  margin-top: -15%; 
+  width: 110%;
+  margin-left: -5%;
+  margin-top: -15%;
   border-radius: 20px;
   background: #000;
   overflow: hidden;
-  
+
   transform-style: preserve-3d;
-  transform: translateZ(24px) translateY(-20px) scale(1.02);
-  
+  transform: translateZ(24px) translateY(-22px) scale(1.02);
+
   box-shadow: var(--shadow-media), 0 25px 50px rgba(0,0,0,0.5);
-  animation: float-img 8s ease-in-out infinite;
   transition: box-shadow 0.3s ease;
   border: 1px solid rgba(255,255,255,0.15);
   backface-visibility: hidden;
-  will-change: transform;
 }
 
 .art-card:hover .art-card__media {
@@ -390,14 +382,14 @@ function onImgLoad(item, e) {
   z-index: 2; /* 确保在模糊层之上 */
 }
 
-/* 模糊背景层 */
+/* 模糊背景层 — 用放大+暗化模拟柔和背景，避免 filter:blur 的高开销 */
 .art-card__blur-bg {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   background-size: cover;
   background-position: center;
-  filter: blur(10px) brightness(0.9);
-  transform: scale(1.1); /* 防止模糊边缘露白 */
+  opacity: 0.45;
+  transform: scale(1.4);
   z-index: 1;
 }
 
@@ -536,11 +528,10 @@ function onImgLoad(item, e) {
   pointer-events: auto;
 }
 
-.like-pill .heart { 
-  width: 16px; 
-  height: 16px; 
+.like-pill .heart {
+  width: 16px;
+  height: 16px;
   color: #ff4757;
-  filter: drop-shadow(0 0 5px #ff4757);
 }
 .like-pill b { display: none; }
 .like-pill .count { font-family: monospace; font-size: 14px; }
