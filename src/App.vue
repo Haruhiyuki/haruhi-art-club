@@ -23,6 +23,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <div class="bg-layer gallery-bg"></div>
+  <div class="bg-layer gallery-mask"></div>
+  
   <div class="app-shell">
     <header class="topbar">
       <TopBar />

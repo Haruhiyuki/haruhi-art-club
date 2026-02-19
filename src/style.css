@@ -82,46 +82,35 @@ body {
    Background Layers
    ========================= */
 
-/* 1. 背景图层：使用 fixed 定位铺满视口 */
-body::before {
-  content: "";
+/* 1. 基础背景层通用样式 */
+.bg-layer {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100vh;
-  height: 100lvh;
-  /* Use Largest Viewport Height to cover address bar area */
-  z-index: -2;
+  inset: -15vh 0;
+  /* 绝对安全的上下缓冲区域，防止任何滚动撕裂 */
+  pointer-events: none;
+  /* 必须穿透点击 */
+}
 
+/* 2. 背景图层 */
+.gallery-bg {
+  z-index: -2;
   /* --- 👇 背景图片链接 👇 --- */
   background-image: url('/bg.webp');
   /* ---------------------- */
-
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-
   /* 视觉效果 */
   filter: blur(8px) saturate(1.2) brightness(1.1);
   transform: scale(1.05);
   /* 微放大防止边缘模糊露白 */
 }
 
-/* 2. 白光滤镜层 */
-body::after {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100vh;
-  height: 100lvh;
+/* 3. 白光滤镜层 */
+.gallery-mask {
   z-index: -1;
-
   /* 半透明白色遮罩 */
   background: rgba(255, 255, 255, 0.5);
-  pointer-events: none;
 }
 
 /* =========================
