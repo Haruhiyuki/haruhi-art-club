@@ -70,12 +70,6 @@ body {
   background-color: transparent;
   /* Let fixed background show through */
   position: relative;
-
-  /* ⚠️ 重要：因为导航栏是 fixed 定位（脱离文档流），
-     必须给 body 一个顶部内边距，否则页面内容会被导航栏挡住。
-     数值 = 导航栏高度 (约72px) + 间距 (24px) = 96px
-  */
-  padding-top: 96px;
 }
 
 /* =========================
