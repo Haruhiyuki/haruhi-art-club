@@ -11,9 +11,9 @@
         class="modal__media" 
         :class="{ 'is-mobile-expanded': isMobileExpanded }"
         @wheel.prevent="handleWheel"
-        @touchstart="handleTouchStart"
+        @touchstart.passive="handleTouchStart"
         @touchmove="handleTouchMove"
-        @touchend="handleTouchEnd"
+        @touchend.passive="handleTouchEnd"
       >
         <!-- 图片本体：增加 transition 用于切换动画 -->
         <transition :name="slideDirection">
@@ -837,8 +837,7 @@ onMounted(() => {
   bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.9);
   padding: 6px 10px;
   border-radius: 99px;
   display: flex;
@@ -877,8 +876,7 @@ onMounted(() => {
 /* --- 右侧侧边栏 --- */
 .modal__side {
   display: flex; flex-direction: column;
-  background: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.72);
   padding: 24px;
   overflow-y: auto;
   border-left: 1px solid rgba(107, 140, 133, 0.1);

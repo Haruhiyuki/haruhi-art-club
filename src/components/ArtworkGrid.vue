@@ -308,36 +308,32 @@ function onImgLoad(item, e) {
 /* =========================
    Card: 3D 底座
 ========================= */
-@keyframes breathe-glow {
-  0%, 100% { box-shadow: 0 0 15px rgba(0, 242, 255, 0.1), inset 0 0 20px rgba(0,0,0,0.5); border-color: rgba(255,255,255,0.1); }
-  50% { box-shadow: 0 0 25px rgba(188, 19, 254, 0.25), inset 0 0 10px rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.3); }
-}
-
 .art-card {
   position: relative;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
+  background: rgba(30, 21, 21, 0.82);
+  border: 1px solid rgba(255,255,255,0.15);
   border-radius: 24px;
-  
-  backdrop-filter: blur(12px) saturate(1.5); 
-  -webkit-backdrop-filter: blur(12px) saturate(1.5);
-  
-  transform-style: preserve-3d; 
-  
+
+  transform-style: preserve-3d;
+  /* Flattens preserve-3d (same as the removed backdrop-filter did),
+     prevents hover on one card from shifting siblings in the perspective scene */
+  isolation: isolate;
+
   transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-  animation: breathe-glow 6s infinite ease-in-out;
-  
+  box-shadow: 0 0 20px rgba(0, 242, 255, 0.12), 0 0 10px rgba(188, 19, 254, 0.1), inset 0 0 15px rgba(0,0,0,0.4);
+
   cursor: pointer;
   outline: none;
-  overflow: visible; 
-  
-  padding-bottom: 12px; 
-  
+  overflow: visible;
+
+  padding-bottom: 12px;
+
   width: 100%;
-  max-width: 380px; 
-  margin: 0 auto; 
-  
+  max-width: 380px;
+  margin: 0 auto;
+
   transform: translateZ(0);
+  will-change: transform;
 }
 
 .art-card:hover {
@@ -376,6 +372,7 @@ function onImgLoad(item, e) {
   transition: box-shadow 0.3s ease;
   border: 1px solid rgba(255,255,255,0.15);
   backface-visibility: hidden;
+  will-change: transform;
 }
 
 .art-card:hover .art-card__media {
@@ -504,19 +501,18 @@ function onImgLoad(item, e) {
   font-weight: 700;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  backdrop-filter: blur(4px);
   border: 1px solid transparent;
 }
 
 .badge--network {
-  background: rgba(180, 180, 180, 0.1);
+  background: rgba(30, 45, 50, 0.55);
   color: var(--neon-cyan);
   border-color: rgba(29, 170, 178, 0.3);
   box-shadow: 0 0 10px rgba(0, 242, 255, 0.1);
 }
 
 .badge--personal {
-  background: rgba(188, 19, 254, 0.1);
+  background: rgba(50, 25, 60, 0.55);
   color: var(--neon-purple);
   border-color: rgba(188, 19, 254, 0.3);
   box-shadow: 0 0 10px rgba(188, 19, 254, 0.1);
@@ -654,7 +650,7 @@ function onImgLoad(item, e) {
   position: relative;
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   overflow: hidden;
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.15);
 }
 
 .twin-btn:hover {

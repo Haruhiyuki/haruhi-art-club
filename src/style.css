@@ -91,7 +91,7 @@ body::before {
   background-repeat: no-repeat;
   
   /* 视觉效果 */
-  filter: blur(8px) saturate(1.2);
+  filter: blur(8px) saturate(1.2) brightness(1.1);
   transform: scale(1.05); /* 微放大防止边缘模糊露白 */
 }
 
@@ -107,7 +107,6 @@ body::after {
   
   /* 半透明白色遮罩 */
   background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: brightness(1.1);
   pointer-events: none;
 }
 
@@ -144,11 +143,10 @@ img { display: block; max-width: 100%; }
 
 /* 通用磨砂面板 (如果其他地方用到) */
 .panel {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-1);
-  backdrop-filter: blur(10px);
 }
 
 /* =========================
@@ -416,9 +414,7 @@ img { display: block; max-width: 100%; }
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: rgba(10, 12, 16, .45);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(10, 12, 16, .55);
 }
 
 .modal {
