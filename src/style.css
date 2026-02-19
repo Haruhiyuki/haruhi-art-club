@@ -59,13 +59,16 @@ body {
   min-height: 100dvh;
   /* Prevent rubber-banding on mobile */
   overscroll-behavior: none;
+  background-color: #1a1c20;
+  /* Dark fallback */
 }
 
 body {
   color: var(--text);
   /* 优先使用 Mac 系统字体 */
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
-  background-color: #f0f2f5;
+  background-color: transparent;
+  /* Let fixed background show through */
   position: relative;
 
   /* ⚠️ 重要：因为导航栏是 fixed 定位（脱离文档流），
