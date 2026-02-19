@@ -85,7 +85,10 @@ body {
 /* 1. 基础背景层通用样式 */
 .bg-layer {
   position: fixed;
-  inset: -15vh 0;
+  top: -15vh;
+  bottom: -15vh;
+  left: 0;
+  right: 0;
   /* 绝对安全的上下缓冲区域，防止任何滚动撕裂 */
   pointer-events: none;
   /* 必须穿透点击 */
