@@ -57,10 +57,8 @@ body {
   padding: 0;
   width: 100%;
   min-height: 100dvh;
-  /* Prevent rubber-banding on mobile */
-  overscroll-behavior: none;
-  background-color: #1a1c20;
-  /* Dark fallback */
+  background-color: #e6f2f0;
+  /* Light theme color to blend with pull-to-refresh overscroll */
 }
 
 body {
