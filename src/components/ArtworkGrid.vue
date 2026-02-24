@@ -227,7 +227,6 @@ function onImgLoad(item, e) {
           <span class="icon">←</span>
           <span class="text">PREV</span>
         </button>
-        <div class="vine-deco"></div>
       </div>
 
       <div class="twin-knot">
@@ -244,7 +243,6 @@ function onImgLoad(item, e) {
           <span class="text">NEXT</span>
           <span class="icon">→</span>
         </button>
-        <div class="vine-deco"></div>
       </div>
     </div>
 
@@ -672,33 +670,5 @@ function onImgLoad(item, e) {
   margin-left: -10px; /* 缩进 */
 }
 
-/* 装饰藤蔓线条 */
-.vine-deco {
-  position: absolute;
-  top: 50%;
-  width: 40px;
-  height: 2px;
-  background: var(--twin-primary);
-  z-index: -1;
-  opacity: 0.6;
-}
 
-.twin-branch.left .vine-deco {
-  right: 0;
-  transform: rotate(-15deg);
-  transform-origin: right center;
-  box-shadow: 0 5px 0 var(--twin-light);
-}
-
-.twin-branch.right .vine-deco {
-  left: 0;
-  transform: rotate(15deg);
-  transform-origin: left center;
-  box-shadow: 0 5px 0 var(--twin-light);
-}
-
-.twin-branch:hover .vine-deco {
-  opacity: 1;
-  box-shadow: 0 0 10px var(--twin-glow);
-}
 </style>
