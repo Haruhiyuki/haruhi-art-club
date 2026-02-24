@@ -382,14 +382,15 @@ function onImgLoad(item, e) {
   z-index: 2; /* 确保在模糊层之上 */
 }
 
-/* 模糊背景层 — 用放大+暗化模拟柔和背景，避免 filter:blur 的高开销 */
+/* 模糊背景层 — 恢复毛玻璃效果 */
 .art-card__blur-bg {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   background-size: cover;
   background-position: center;
-  opacity: 0.45;
+  opacity: 0.6;
   transform: scale(1.4);
+  filter: blur(20px);
   z-index: 1;
 }
 
