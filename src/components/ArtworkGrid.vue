@@ -133,87 +133,91 @@ function onImgLoad(item, e) {
 <template>
   <div class="gallery">
     <div class="grid">
-      <article
+      <div
         v-for="it in list"
         :key="it.id ?? it.file_path ?? it.title"
-        class="art-card"
-        role="button"
-        tabindex="0"
-        @click="openCard(it)"
-        @keydown.enter="openCard(it)"
+        class="art-card-wrap"
       >
-        <div class="art-card__media">
-          <!-- 背景模糊层：填补留白 -->
-          <div 
-            class="art-card__blur-bg"
-            :style="{ backgroundImage: `url(${imgSrc(it)})` }"
-          ></div>
+        <article
+          class="art-card"
+          role="button"
+          tabindex="0"
+          @click="openCard(it)"
+          @keydown.enter="openCard(it)"
+        >
+          <div class="art-card__media">
+            <!-- 背景模糊层：填补留白 -->
+            <div 
+              class="art-card__blur-bg"
+              :style="{ backgroundImage: `url(${imgSrc(it)})` }"
+            ></div>
 
-          <img
-            class="art-card__img"
-            :src="imgSrc(it)"
-            :alt="it.title || 'artwork'"
-            loading="lazy"
-            :style="imgStyle[it.id] || { objectFit: 'cover' }"
-            @load="onImgLoad(it, $event)"
-          />
-        </div>
-
-        <div class="art-card__body">
-          <div class="art-card__meta">
-            <span :class="badgeClass(it)">{{ badgeText(it) }}</span>
-
-            <button
-              class="like-pill"
-              type="button"
-              @click.stop="(e) => like(it, e)"
-              data-sfx="click"
-              aria-label="点赞"
-            >
-              <svg class="heart" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path
-                  d="M12 21s-7-4.6-9.4-8.7C.6 9.1 2.2 5.9 5.6 5.1c2-.5 4 .3 5.3 1.8 1.3-1.5 3.3-2.3 5.3-1.8 3.4.8 5 4 3 7.2C19 16.4 12 21 12 21z"
-                  fill="currentColor"
-                />
-              </svg>
-              <b>赞</b>
-              <span class="count">{{ likeCount(it) }}</span>
-            </button>
+            <img
+              class="art-card__img"
+              :src="imgSrc(it)"
+              :alt="it.title || 'artwork'"
+              loading="lazy"
+              :style="imgStyle[it.id] || { objectFit: 'cover' }"
+              @load="onImgLoad(it, $event)"
+            />
           </div>
 
-          <div class="art-card__title">
-            {{ it.title }}
-          </div>
+          <div class="art-card__body">
+            <div class="art-card__meta">
+              <span :class="badgeClass(it)">{{ badgeText(it) }}</span>
 
-          <div class="byline">
-            <span class="byline__k">上传者：</span>
+              <button
+                class="like-pill"
+                type="button"
+                @click.stop="(e) => like(it, e)"
+                data-sfx="click"
+                aria-label="点赞"
+              >
+                <svg class="heart" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path
+                    d="M12 21s-7-4.6-9.4-8.7C.6 9.1 2.2 5.9 5.6 5.1c2-.5 4 .3 5.3 1.8 1.3-1.5 3.3-2.3 5.3-1.8 3.4.8 5 4 3 7.2C19 16.4 12 21 12 21z"
+                    fill="currentColor"
+                  />
+                </svg>
+                <b>赞</b>
+                <span class="count">{{ likeCount(it) }}</span>
+              </button>
+            </div>
 
-            <a
-              v-if="isAuthorClickable(it)"
-              class="byline__a"
-              href="javascript:void(0)"
-              @click.stop="(e) => goAuthor(it, e)"
-              data-sfx="click"
-            >
-              {{ displayUploader(it) }}
-            </a>
-            <span v-else class="byline__v">{{ displayUploader(it) }}</span>
-          </div>
+            <div class="art-card__title">
+              {{ it.title }}
+            </div>
 
-          <div class="tags" v-if="Array.isArray(it.tags) && it.tags.length">
-            <button
-              v-for="t in it.tags.slice(0, 6)"
-              :key="t"
-              class="tag-chip"
-              type="button"
-              @click.stop="(e) => clickTag(t, it, e)"
-              data-sfx="click"
-            >
-              #{{ t }}
-            </button>
+            <div class="byline">
+              <span class="byline__k">上传者：</span>
+
+              <a
+                v-if="isAuthorClickable(it)"
+                class="byline__a"
+                href="javascript:void(0)"
+                @click.stop="(e) => goAuthor(it, e)"
+                data-sfx="click"
+              >
+                {{ displayUploader(it) }}
+              </a>
+              <span v-else class="byline__v">{{ displayUploader(it) }}</span>
+            </div>
+
+            <div class="tags" v-if="Array.isArray(it.tags) && it.tags.length">
+              <button
+                v-for="t in it.tags.slice(0, 6)"
+                :key="t"
+                class="tag-chip"
+                type="button"
+                @click.stop="(e) => clickTag(t, it, e)"
+                data-sfx="click"
+              >
+                #{{ t }}
+              </button>
+            </div>
           </div>
-        </div>
-      </article>
+        </article>
+      </div>
     </div>
 
     <div class="pagination-twin" v-if="page > 1 || hasMore">
@@ -286,6 +290,28 @@ function onImgLoad(item, e) {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 100px 50px;
+}
+
+@keyframes float-card {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.art-card-wrap {
+  width: 100%;
+  animation: float-card 6.8s ease-in-out infinite;
+}
+
+.art-card-wrap:nth-child(2n) {
+  animation-delay: -2.2s;
+}
+
+.art-card-wrap:nth-child(3n) {
+  animation-delay: -4.3s;
+}
+
+.art-card-wrap:hover {
+  animation-play-state: paused;
 }
 
 @media (max-width: 1100px) {
