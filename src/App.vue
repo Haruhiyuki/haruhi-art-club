@@ -1,28 +1,11 @@
 <script setup>
-import { onMounted, onBeforeUnmount } from 'vue'
 import TopBar from './components/TopBar.vue'
-import { playUiClick } from './utils/uiSound.js'
-
-let _handler = null
-
-onMounted(() => {
-  // ✅ 事件代理：任何带 data-sfx="click" 的按钮/元素点击都会播放点击音效
-  _handler = (e) => {
-    const el = e.target?.closest?.('[data-sfx="click"]')
-    if(!el) return
-    if(el.getAttribute('aria-disabled') === 'true') return
-    if(el.disabled) return
-    playUiClick()
-  }
-  window.addEventListener('click', _handler, true)
-})
-
-onBeforeUnmount(() => {
-  if(_handler) window.removeEventListener('click', _handler, true)
-})
 </script>
 
 <template>
+  <div class="bg-layer gallery-bg"></div>
+  <div class="bg-layer gallery-mask"></div>
+  
   <div class="app-shell">
     <header class="topbar">
       <TopBar />
@@ -39,6 +22,17 @@ onBeforeUnmount(() => {
 </template>
 
 <style>
+/* =========================================
+   全局页面布局约束
+   ========================================= */
+.app-shell {
+  /* ⚠️ 重要：因为导航栏是 fixed 定位，必须给内容区一个顶部内边距。
+     数值 = 导航栏高度 (约72px) + 间距 (24px) = 96px */
+  padding-top: 96px;
+  /* Ensure the shell takes full height so short pages don't abruptly end */
+  min-height: 100dvh;
+}
+
 /* =========================================
    全局页面切换动画：磨砂浮动 + 缩放效果
    ========================================= */

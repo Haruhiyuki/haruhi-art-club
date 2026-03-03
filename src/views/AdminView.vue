@@ -76,11 +76,50 @@
                   <div class="m-desc">{{ it.description }}</div>
                   
                   <!-- 编辑器 -->
-                  <div v-if="editingId === it.id" class="inline-editor">
-                    <input v-model="editForm.title" class="input sm" placeholder="标题">
+                  <div v-if="editingId === it.id" class="inline-editor expanded">
+                    <div class="editor-row">
+                      <input v-model="editForm.title" class="input sm" placeholder="标题">
+                      <input v-model="editForm.tags" class="input sm" placeholder="标签 (空格分隔)">
+                    </div>
                     <textarea v-model="editForm.description" class="textarea sm" placeholder="描述"></textarea>
+                    
+                    <div class="editor-row">
+                      <select v-model="editForm.source_type" class="select sm">
+                        <option value="personal">个人作品</option>
+                        <option value="network">网络收集</option>
+                      </select>
+                      <select v-model="editForm.content_type" class="select sm">
+                        <option value="haruhi">凉宫内容</option>
+                        <option value="other">非凉宫内容</option>
+                      </select>
+                    </div>
+
+                    <div class="editor-row">
+                      <input v-model="editForm.uploader_name" class="input sm" placeholder="上传者名称">
+                      <input v-model="editForm.uploader_uid" class="input sm" placeholder="上传者 UID">
+                    </div>
+                    
+                    <div class="editor-row">
+                      <input v-model="editForm.origin_url" class="input sm" placeholder="来源链接 (URL)" style="flex:1">
+                    </div>
+
+                    <div class="editor-licenses">
+                      <div class="lic-group">
+                        <div class="lic-title">公开授权</div>
+                        <label v-for="opt in NET_LICENSE_OPTIONS" :key="opt" class="chk-item">
+                          <input type="checkbox" :value="opt" v-model="editForm.netLicenses"> {{ opt }}
+                        </label>
+                      </div>
+                      <div class="lic-group">
+                        <div class="lic-title">社团授权</div>
+                        <label v-for="opt in GROUP_LICENSE_OPTIONS" :key="opt" class="chk-item">
+                          <input type="checkbox" :value="opt" v-model="editForm.groupLicenses"> {{ opt }}
+                        </label>
+                      </div>
+                    </div>
+
                     <div class="btns">
-                      <button class="btn sm" @click="saveEdit(it)">保存</button>
+                      <button class="btn sm" @click="saveEdit(it)">💾 保存修改</button>
                       <button class="btn-ghost sm" @click="editingId=null">取消</button>
                     </div>
                   </div>
@@ -135,11 +174,50 @@
                   </div>
                   <div class="m-desc">{{ it.description }}</div>
                   
-                  <div v-if="editingId === it.id" class="inline-editor">
-                    <input v-model="editForm.title" class="input sm" placeholder="标题">
+                  <div v-if="editingId === it.id" class="inline-editor expanded">
+                    <div class="editor-row">
+                      <input v-model="editForm.title" class="input sm" placeholder="标题">
+                      <input v-model="editForm.tags" class="input sm" placeholder="标签 (空格分隔)">
+                    </div>
                     <textarea v-model="editForm.description" class="textarea sm" placeholder="描述"></textarea>
+
+                    <div class="editor-row">
+                      <select v-model="editForm.source_type" class="select sm">
+                        <option value="personal">个人作品</option>
+                        <option value="network">网络收集</option>
+                      </select>
+                      <select v-model="editForm.content_type" class="select sm">
+                        <option value="haruhi">凉宫内容</option>
+                        <option value="other">非凉宫内容</option>
+                      </select>
+                    </div>
+
+                    <div class="editor-row">
+                      <input v-model="editForm.uploader_name" class="input sm" placeholder="上传者名称">
+                      <input v-model="editForm.uploader_uid" class="input sm" placeholder="上传者 UID">
+                    </div>
+
+                    <div class="editor-row">
+                      <input v-model="editForm.origin_url" class="input sm" placeholder="来源链接 (URL)" style="flex:1">
+                    </div>
+                    
+                    <div class="editor-licenses">
+                      <div class="lic-group">
+                        <div class="lic-title">公开授权</div>
+                        <label v-for="opt in NET_LICENSE_OPTIONS" :key="opt" class="chk-item">
+                          <input type="checkbox" :value="opt" v-model="editForm.netLicenses"> {{ opt }}
+                        </label>
+                      </div>
+                      <div class="lic-group">
+                        <div class="lic-title">社团授权</div>
+                        <label v-for="opt in GROUP_LICENSE_OPTIONS" :key="opt" class="chk-item">
+                          <input type="checkbox" :value="opt" v-model="editForm.groupLicenses"> {{ opt }}
+                        </label>
+                      </div>
+                    </div>
+
                     <div class="btns">
-                      <button class="btn sm" @click="saveEdit(it)">保存</button>
+                      <button class="btn sm" @click="saveEdit(it)">💾 保存修改</button>
                       <button class="btn-ghost sm" @click="editingId=null">取消</button>
                     </div>
                   </div>
@@ -167,10 +245,10 @@
           </div>
 
           <div class="toolbar" v-if="commentTab==='all'">
-            <input v-model="commentSearch" class="input sm" placeholder="搜索评论内容..." style="width: 240px;" />
+            <input v-model="commentSearch" class="input sm comment-search" placeholder="搜索评论内容..." />
           </div>
 
-          <div class="comment-table">
+          <div class="comment-table desktop-only">
             <div class="c-row header">
               <div class="col-user">用户</div>
               <div class="col-content">内容</div>
@@ -197,13 +275,33 @@
             </div>
             <div v-if="filteredComments.length === 0" class="empty-row">无数据</div>
           </div>
+
+          <div class="comment-list-mobile">
+            <article class="comment-card" v-for="c in filteredComments" :key="`mobile-${c.id}`">
+              <div class="comment-card-top">
+                <div>
+                  <div class="u-name">{{ c.user_name }}</div>
+                  <div class="u-time">{{ new Date(c.created_at).toLocaleString() }}</div>
+                </div>
+                <span :class="['badge-mini', c.status]">{{ c.status === 'flagged' ? 'AI锁定' : (c.status==='hidden'?'隐藏':'正常') }}</span>
+              </div>
+              <div class="body-text">{{ c.body }}</div>
+              <div v-if="c.ai_reason" class="ai-reason-mini">🤖 {{ c.ai_reason }}</div>
+              <div class="comment-card-actions">
+                <button v-if="c.status !== 'public'" class="btn-mini success" @click="updateComment(c, 'public')">通过</button>
+                <button v-if="c.status === 'public'" class="btn-mini warn" @click="updateComment(c, 'flagged')">锁定</button>
+                <button class="btn-mini danger" @click="deleteComment(c)">删除</button>
+              </div>
+            </article>
+            <div v-if="filteredComments.length === 0" class="empty-row">无数据</div>
+          </div>
         </div>
 
         <!-- ================= 创作者管理 (优化后) ================= -->
         <div v-if="mainTab==='creators'" class="tab-content">
           <div class="two-col-layout">
             <!-- 左列：列表 -->
-            <div class="col-left">
+            <div class="col-left" :class="{ 'mobile-hidden': selectedCreator }">
               <div class="toolbar tight">
                 <input v-model="creatorSearch" class="input sm" placeholder="搜索 UID..." />
                 <div class="add-row">
@@ -234,11 +332,14 @@
             </div>
 
             <!-- 右列：详情与编辑 -->
-            <div class="col-right">
+            <div class="col-right" :class="{ 'mobile-visible': selectedCreator }">
               <div v-if="selectedCreator" class="creator-detail-panel">
                 <div class="panel-header">
                   <div class="ph-title">编辑创作者: {{ selectedCreator.uid }}</div>
-                  <button class="btn-ghost danger sm" @click="deleteCreator">删除账号</button>
+                  <div class="panel-actions">
+                    <button class="btn-ghost sm mobile-only" @click="selectedCreator=null">返回列表</button>
+                    <button class="btn-ghost danger sm" @click="deleteCreator">删除账号</button>
+                  </div>
                 </div>
 
                 <div class="edit-form">
@@ -361,7 +462,25 @@ const approvedList = ref([])
 const artListPage = ref(1)
 const artListFilter = ref({ content: 'all', source: 'all', q: '' })
 const editingId = ref(null)
-const editForm = ref({ title: '', description: '', tags: '' })
+const editForm = ref({ 
+  title: '', description: '', tags: '', 
+  uploader_name: '', uploader_uid: '', 
+  source_type: 'personal', content_type: 'haruhi', origin_url: '',
+  netLicenses: [], groupLicenses: []
+})
+
+const NET_LICENSE_OPTIONS = [
+  '可在b站、小红书等社交媒体转载',
+  '允许用于视频等个人创作',
+  '允许用于制作无料发放'
+]
+
+const GROUP_LICENSE_OPTIONS = [
+  '允许应援团社交媒体官方账号转载',
+  '允许用于应援团官方视频/游戏等创作企划',
+  '允许制作无料周边发放',
+  '允许制作贩售周边'
+]
 const notes = ref({}) // 审核备注
 const showPreview = ref(false)
 const previewItem = ref(null)
@@ -489,13 +608,45 @@ function startEdit(it) {
   editForm.value = {
     title: it.title,
     description: it.description,
-    tags: Array.isArray(it.tags) ? it.tags.join(' ') : ''
+    tags: Array.isArray(it.tags) ? it.tags.join(' ') : '',
+    uploader_name: it.uploader_name || '',
+    uploader_uid: it.uploader_uid || '',
+    source_type: it.source_type || 'personal',
+    content_type: it.content_type || 'haruhi',
+    origin_url: it.origin_url || '',
+    netLicenses: [],
+    groupLicenses: []
+  }
+  
+  if (Array.isArray(it.licenses)) {
+    it.licenses.forEach(l => {
+      if (l.startsWith('NET:')) editForm.value.netLicenses.push(l.replace('NET:', ''))
+      if (l.startsWith('GROUP:')) editForm.value.groupLicenses.push(l.replace('GROUP:', ''))
+    })
   }
 }
 async function saveEdit(it) {
-  await api.adminUpdateArtworkDetails(it.id, editForm.value)
+  const payload = {
+    ...editForm.value,
+    licenses: JSON.stringify([
+      ...editForm.value.netLicenses.map(x => `NET:${x}`),
+      ...editForm.value.groupLicenses.map(x => `GROUP:${x}`)
+    ])
+  }
+  await api.adminUpdateArtworkDetails(it.id, payload)
+  
+  // 更新本地数据
   it.title = editForm.value.title
   it.description = editForm.value.description
+  it.uploader_name = editForm.value.uploader_name
+  it.uploader_uid = editForm.value.uploader_uid
+  it.source_type = editForm.value.source_type
+  it.content_type = editForm.value.content_type
+  it.origin_url = editForm.value.origin_url
+  it.licenses = [
+      ...editForm.value.netLicenses.map(x => `NET:${x}`),
+      ...editForm.value.groupLicenses.map(x => `GROUP:${x}`)
+  ]
   editingId.value = null
 }
 
@@ -719,6 +870,7 @@ onMounted(async () => {
 .toolbar.tight { margin-bottom: 10px; flex-direction: column; align-items: stretch; gap: 8px; }
 .filter-bar { background: #fff; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; }
 .filters { display: flex; gap: 10px; align-items: center; flex: 1; }
+.comment-search { width: 240px; }
 .tip { font-size: 13px; color: #6b7280; }
 .add-row { display: flex; gap: 8px; }
 
@@ -746,6 +898,7 @@ onMounted(async () => {
 .creator-detail-panel { display: flex; flex-direction: column; height: 100%; }
 .panel-header { padding: 16px 24px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; background: #f9fafb; }
 .ph-title { font-size: 18px; font-weight: bold; color: #111; }
+.panel-actions { display: flex; align-items: center; gap: 8px; }
 .empty-select { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #9ca3af; gap: 10px; }
 .empty-select .icon { font-size: 40px; opacity: 0.5; }
 
@@ -804,7 +957,7 @@ onMounted(async () => {
 
 .m-info { display: flex; gap: 8px; align-items: center; font-size: 12px; color: #6b7280; flex-wrap: wrap; }
 .tag { background: #f3f4f6; padding: 2px 8px; border-radius: 4px; }
-.u-name { margin-left: auto; }
+.m-info .u-name { margin-left: auto; }
 
 .m-desc { font-size: 13px; color: #4b5563; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
@@ -828,6 +981,9 @@ onMounted(async () => {
 .col-content { flex: 1; font-size: 13px; }
 .col-status { width: 90px; text-align: center; }
 .col-action { width: 160px; display: flex; gap: 6px; justify-content: flex-end; }
+.desktop-only { display: block; }
+.mobile-only { display: none !important; }
+.comment-list-mobile { display: none; }
 
 .u-name { font-weight: bold; color: #111; }
 .u-time { font-size: 11px; color: #9ca3af; margin-top: 2px; }
@@ -899,4 +1055,246 @@ onMounted(async () => {
 .ph-val.neg { color: #dc2626; }
 .ph-reason { flex: 1; color: #374151; }
 .empty-ph { padding: 24px; text-align: center; color: #9ca3af; font-size: 13px; }
+
+/* Expanded Editor Styles */
+.inline-editor.expanded { gap: 12px; }
+.editor-row { display: flex; gap: 8px; }
+.editor-licenses { display: flex; flex-direction: column; gap: 8px; background: #fff; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px; }
+.lic-group { display: flex; flex-direction: column; gap: 4px; }
+.lic-title { font-size: 11px; font-weight: bold; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+.chk-item { font-size: 12px; display: flex; align-items: center; gap: 6px; color: #374151; cursor: pointer; }
+.chk-item:hover { color: #111; }
+
+@media (max-width: 1024px) {
+  .content-area { padding: 16px; }
+  .filters { flex-wrap: wrap; }
+  .two-col-layout { gap: 12px; min-height: 0; height: auto; }
+  .col-left { width: 240px; }
+}
+
+@media (max-width: 768px) {
+  .head-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .h1 { font-size: 20px; }
+
+  .auth-box {
+    padding: 16px 0 8px;
+    align-items: stretch;
+  }
+  .form2 {
+    flex-direction: column;
+    width: 100%;
+  }
+  .form2 .btn { width: 100%; }
+
+  .panel-layout { display: block; }
+  .main-nav {
+    width: auto;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0 0 10px;
+    margin-bottom: 12px;
+    flex-direction: row;
+    gap: 8px;
+    overflow-x: auto;
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    background: #f9fafb;
+  }
+  .nav-item {
+    white-space: nowrap;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+  .nav-item.active {
+    border-left-color: transparent;
+    border-bottom-color: #2563eb;
+  }
+  .content-area { padding: 12px; }
+
+  .sub-tabs {
+    gap: 12px;
+    overflow-x: auto;
+    margin-bottom: 14px;
+  }
+  .sub-tab {
+    white-space: nowrap;
+    font-size: 14px;
+  }
+
+  .toolbar {
+    align-items: stretch;
+    gap: 8px;
+  }
+  .tip { font-size: 12px; }
+  .comment-search { width: 100%; }
+  .filter-bar { padding: 10px; }
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .filters .btn,
+  .filters .select,
+  .filters .input {
+    width: 100%;
+  }
+
+  .card-grid { gap: 12px; }
+  .manage-card { flex-direction: column; }
+  .m-thumb { width: 100%; height: 190px; }
+  .m-body { padding: 12px; gap: 10px; }
+  .title-row { gap: 8px; align-items: flex-start; }
+  .m-title { font-size: 15px; line-height: 1.35; }
+  .m-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .m-actions.right { justify-content: flex-start; }
+  .m-actions .btn,
+  .m-actions .btn-ghost {
+    width: 100%;
+  }
+  .btn-group {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .note-input {
+    min-height: 74px;
+    height: auto;
+  }
+  .editor-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .btns {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .desktop-only { display: none !important; }
+  .mobile-only { display: inline-flex !important; }
+  .comment-list-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .comment-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .comment-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .comment-card-actions {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .comment-card-actions .btn-mini {
+    width: 100%;
+    min-height: 32px;
+  }
+
+  .two-col-layout {
+    display: block;
+    height: auto;
+    min-height: 0;
+  }
+  .col-left {
+    width: 100%;
+    border-right: none;
+    padding-right: 0;
+  }
+  .col-left.mobile-hidden { display: none; }
+  .creator-list-v {
+    max-height: calc(100vh - 300px);
+    padding-right: 0;
+  }
+  .col-right {
+    display: none;
+    min-height: 0;
+  }
+  .col-right.mobile-visible { display: block; }
+  .panel-header {
+    padding: 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .ph-title { font-size: 16px; }
+  .panel-actions {
+    width: 100%;
+  }
+  .panel-actions .btn-ghost {
+    flex: 1;
+  }
+  .edit-form,
+  .points-section {
+    padding: 12px;
+    gap: 14px;
+  }
+  .divider { margin: 0 12px; }
+  .avatar-uploader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .au-actions {
+    width: 100%;
+    align-items: stretch;
+  }
+  .au-actions .btn-ghost { width: 100%; }
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
+    margin-top: 4px;
+  }
+  .form-actions .btn { width: 100%; }
+  .pa-form {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .input-group { width: 100%; }
+  .points-num {
+    text-align: left;
+    padding-left: 50px !important;
+  }
+  .ph-scroll-area {
+    max-height: none;
+  }
+  .ph-row {
+    padding: 8px 10px;
+    gap: 8px;
+    align-items: center;
+  }
+  .ph-time {
+    width: 84px;
+    flex-shrink: 0;
+  }
+  .ph-val {
+    width: 56px;
+    flex-shrink: 0;
+  }
+}
+
 </style>

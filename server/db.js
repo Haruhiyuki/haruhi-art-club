@@ -3,20 +3,20 @@ import { open } from 'sqlite'
 
 let _db = null
 
-export function getDb(){
-  if(!_db) throw new Error('DB not initialized')
+export function getDb() {
+  if (!_db) throw new Error('DB not initialized')
   return _db
 }
 
-async function ensureColumn(db, table, colName, colDefSql){
+async function ensureColumn(db, table, colName, colDefSql) {
   const info = await db.all(`PRAGMA table_info(${table})`)
   const exists = info.some(c => c.name === colName)
-  if(!exists){
+  if (!exists) {
     await db.exec(`ALTER TABLE ${table} ADD COLUMN ${colDefSql}`)
   }
 }
 
-export async function initDb(dbPath){
+export async function initDb(dbPath) {
   _db = await open({
     filename: dbPath,
     driver: sqlite3.Database
@@ -119,9 +119,13 @@ export async function initDb(dbPath){
   await ensureColumn(_db, 'comments', 'status', "status TEXT DEFAULT 'public'")
   await ensureColumn(_db, 'members', 'is_active', 'is_active INTEGER DEFAULT 1')
   await ensureColumn(_db, 'members', 'created_at', 'created_at TEXT')
-  
+
   // 新增：确保 creators 表有 qq 字段
   await ensureColumn(_db, 'creators', 'qq', 'qq TEXT')
+
+  // Fix: Add missing ai_reason columns
+  await ensureColumn(_db, 'artworks', 'ai_reason', 'ai_reason TEXT')
+  await ensureColumn(_db, 'comments', 'ai_reason', 'ai_reason TEXT')
 
   return _db
 }

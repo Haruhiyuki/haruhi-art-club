@@ -90,18 +90,18 @@ const sortLabel = computed(() => {
 })
 
 // --- 翻页处理 ---
-function handlePrevPage() {
+async function handlePrevPage() {
   if (store.page > 1) {
     store.page--
-    store.load()
+    await store.load()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 }
 
-function handleNextPage() {
+async function handleNextPage() {
   if (store.hasMore) {
     store.page++
-    store.load()
+    await store.load()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 }
@@ -244,7 +244,11 @@ watch(() => store.list, (list) => {
 })
 
 // ✅ 修复：必须用同一个函数引用，remove 才有效
-const onResize = () => updatePageSize(true)
+let _resizeTimer = null
+const onResize = () => {
+  clearTimeout(_resizeTimer)
+  _resizeTimer = setTimeout(() => updatePageSize(true), 150)
+}
 
 // --- 初始化顺序修复 ---
 onMounted(() => {
@@ -265,6 +269,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', onResize)
+  clearTimeout(_resizeTimer)
 })
 </script>
 

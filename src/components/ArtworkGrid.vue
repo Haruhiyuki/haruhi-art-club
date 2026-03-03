@@ -231,7 +231,6 @@ function onImgLoad(item, e) {
           <span class="icon">←</span>
           <span class="text">PREV</span>
         </button>
-        <div class="vine-deco"></div>
       </div>
 
       <div class="twin-knot">
@@ -248,7 +247,6 @@ function onImgLoad(item, e) {
           <span class="text">NEXT</span>
           <span class="icon">→</span>
         </button>
-        <div class="vine-deco"></div>
       </div>
     </div>
 
@@ -334,35 +332,30 @@ function onImgLoad(item, e) {
 /* =========================
    Card: 3D 底座
 ========================= */
-@keyframes breathe-glow {
-  0%, 100% { box-shadow: 0 0 15px rgba(0, 242, 255, 0.1), inset 0 0 20px rgba(0,0,0,0.5); border-color: rgba(255,255,255,0.1); }
-  50% { box-shadow: 0 0 25px rgba(188, 19, 254, 0.25), inset 0 0 10px rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.3); }
-}
-
 .art-card {
   position: relative;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
+  background: rgba(30, 21, 21, 0.82);
+  border: 1px solid rgba(255,255,255,0.15);
   border-radius: 24px;
-  
-  backdrop-filter: blur(12px) saturate(1.5); 
-  -webkit-backdrop-filter: blur(12px) saturate(1.5);
-  
-  transform-style: preserve-3d; 
-  
+
+  transform-style: preserve-3d;
+  /* Flattens preserve-3d (same as the removed backdrop-filter did),
+     prevents hover on one card from shifting siblings in the perspective scene */
+  isolation: isolate;
+
   transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-  animation: breathe-glow 6s infinite ease-in-out;
-  
+  box-shadow: 0 0 20px rgba(0, 242, 255, 0.12), 0 0 10px rgba(188, 19, 254, 0.1), inset 0 0 15px rgba(0,0,0,0.4);
+
   cursor: pointer;
   outline: none;
-  overflow: visible; 
-  
-  padding-bottom: 12px; 
-  
+  overflow: visible;
+
+  padding-bottom: 12px;
+
   width: 100%;
-  max-width: 380px; 
-  margin: 0 auto; 
-  
+  max-width: 380px;
+  margin: 0 auto;
+
   transform: translateZ(0);
 }
 
@@ -379,26 +372,20 @@ function onImgLoad(item, e) {
 /* =========================
    Media: 悬浮图片层 (Z=24px)
 ========================= */
-@keyframes float-img {
-  0%, 100% { transform: translateZ(24px) translateY(-20px) scale(1.02); }
-  50% { transform: translateZ(24px) translateY(-26px) scale(1.02); } 
-}
-
 .art-card__media {
   position: relative;
   aspect-ratio: 4 / 3;
-  width: 110%; 
-  margin-left: -5%; 
-  margin-top: -15%; 
+  width: 110%;
+  margin-left: -5%;
+  margin-top: -15%;
   border-radius: 20px;
   background: #000;
   overflow: hidden;
-  
+
   transform-style: preserve-3d;
-  transform: translateZ(24px) translateY(-20px) scale(1.02);
-  
+  transform: translateZ(24px) translateY(-22px) scale(1.02);
+
   box-shadow: var(--shadow-media), 0 25px 50px rgba(0,0,0,0.5);
-  animation: float-img 8s ease-in-out infinite;
   transition: box-shadow 0.3s ease;
   border: 1px solid rgba(255,255,255,0.15);
   backface-visibility: hidden;
@@ -419,14 +406,15 @@ function onImgLoad(item, e) {
   z-index: 2; /* 确保在模糊层之上 */
 }
 
-/* 模糊背景层 */
+/* 模糊背景层 — 恢复毛玻璃效果 */
 .art-card__blur-bg {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   background-size: cover;
   background-position: center;
-  filter: blur(10px) brightness(0.9);
-  transform: scale(1.1); /* 防止模糊边缘露白 */
+  opacity: 0.6;
+  transform: scale(1.4);
+  filter: blur(20px);
   z-index: 1;
 }
 
@@ -530,19 +518,18 @@ function onImgLoad(item, e) {
   font-weight: 700;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  backdrop-filter: blur(4px);
   border: 1px solid transparent;
 }
 
 .badge--network {
-  background: rgba(180, 180, 180, 0.1);
+  background: rgba(30, 45, 50, 0.55);
   color: var(--neon-cyan);
   border-color: rgba(29, 170, 178, 0.3);
   box-shadow: 0 0 10px rgba(0, 242, 255, 0.1);
 }
 
 .badge--personal {
-  background: rgba(188, 19, 254, 0.1);
+  background: rgba(50, 25, 60, 0.55);
   color: var(--neon-purple);
   border-color: rgba(188, 19, 254, 0.3);
   box-shadow: 0 0 10px rgba(188, 19, 254, 0.1);
@@ -566,11 +553,10 @@ function onImgLoad(item, e) {
   pointer-events: auto;
 }
 
-.like-pill .heart { 
-  width: 16px; 
-  height: 16px; 
+.like-pill .heart {
+  width: 16px;
+  height: 16px;
   color: #ff4757;
-  filter: drop-shadow(0 0 5px #ff4757);
 }
 .like-pill b { display: none; }
 .like-pill .count { font-family: monospace; font-size: 14px; }
@@ -680,7 +666,7 @@ function onImgLoad(item, e) {
   position: relative;
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   overflow: hidden;
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.15);
 }
 
 .twin-btn:hover {
@@ -710,16 +696,6 @@ function onImgLoad(item, e) {
   margin-left: -10px; /* 缩进 */
 }
 
-/* 装饰藤蔓线条 */
-.vine-deco {
-  position: absolute;
-  top: 50%;
-  width: 40px;
-  height: 2px;
-  background: var(--twin-primary);
-  z-index: -1;
-  opacity: 0.6;
-}
 
 .twin-branch.left .vine-deco {
   right: 0;

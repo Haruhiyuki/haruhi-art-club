@@ -155,7 +155,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 24 * 1024 * 1024 }
+  limits: { fileSize: 100 * 1024 * 1024 }
 })
 
 const uploadFields = upload.fields([
@@ -338,12 +338,13 @@ app.get('/api/artworks', async (req, res) => {
     if (seedQ !== undefined && seedQ !== null && String(seedQ).trim() !== '') {
       seedUsed = clampInt(seedQ, 0, 2147483647, 0)
     } else {
-      const anonId = String(req.anonId || '0')
-      const seedBuf = crypto.createHash('sha256').update(anonId).digest()
-      seedUsed = (seedBuf.readUInt32LE(0) >>> 0) & 0x7fffffff
+      // No seed provided → generate a truly random one per request
+      seedUsed = crypto.randomInt(0, 2147483647)
     }
-    orderBy = `ORDER BY ((a.id + ?) * 1103515245) % 2147483647 ASC, a.id ASC`
-    orderParams.push(seedUsed)
+    // XOR-based mixing: (a XOR b) = a + b - 2*(a & b) in SQLite
+    // Two rounds of multiply-mod break all linear correlation between seeds
+    orderBy = `ORDER BY (((a.id + ? - 2 * (a.id & ?)) * 2654435761) % 2147483647 + 1) * 1103515245 % 2147483647 ASC`
+    orderParams.push(seedUsed, seedUsed)
   }
 
   const rows = await db.all(
@@ -689,12 +690,26 @@ app.post('/api/admin/artworks/:id/status', requireAdmin, async (req, res) => {
 app.post('/api/admin/artworks/:id/update', requireAdmin, async (req, res) => {
   const db = getDb()
   const id = Number(req.params.id)
-  const { title, description, tags } = req.body
+  const {
+    title, description, tags,
+    uploader_name, uploader_uid, source_type, content_type, origin_url, licenses
+  } = req.body
+
   const tagsArr = normalizeTagsToArray(tags)
   const tags_json = JSON.stringify(tagsArr)
   const tags_norm = makeTagsNorm(tagsArr)
-  await db.run(`UPDATE artworks SET title=?, description=?, tags_json=?, tags_norm=? WHERE id=?`,
-    [title, description, tags_json, tags_norm, id]
+
+  const licensesArr = parseLicenses(licenses)
+  const licenses_json = JSON.stringify(licensesArr)
+
+  await db.run(`
+    UPDATE artworks 
+    SET title=?, description=?, tags_json=?, tags_norm=?,
+        uploader_name=?, uploader_uid=?, source_type=?, content_type=?, origin_url=?, licenses_json=?
+    WHERE id=?`,
+    [title, description, tags_json, tags_norm,
+      uploader_name, uploader_uid, source_type, content_type, origin_url, licenses_json,
+      id]
   )
   res.json({ ok: true })
 })
@@ -832,6 +847,17 @@ app.post('/api/admin/points/grant', requireAdmin, async (req, res) => {
 })
 
 await initDb(DB_PATH)
+
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ ok: false, message: '文件大小超过限制 (100MB)' })
+    }
+  }
+  console.error('Unhandled error:', err)
+  res.status(500).json({ ok: false, message: 'Internal Server Error' })
+})
+
 app.listen(API_PORT, '127.0.0.1', () => {
   console.log(`[api] listening on http://127.0.0.1:${API_PORT}`)
 })
