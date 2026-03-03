@@ -696,23 +696,4 @@ function onImgLoad(item, e) {
   margin-left: -10px; /* 缩进 */
 }
 
-
-.twin-branch.left .vine-deco {
-  right: 0;
-  transform: rotate(-15deg);
-  transform-origin: right center;
-  box-shadow: 0 5px 0 var(--twin-light);
-}
-
-.twin-branch.right .vine-deco {
-  left: 0;
-  transform: rotate(15deg);
-  transform-origin: left center;
-  box-shadow: 0 5px 0 var(--twin-light);
-}
-
-.twin-branch:hover .vine-deco {
-  opacity: 1;
-  box-shadow: 0 0 10px var(--twin-glow);
-}
 </style>
