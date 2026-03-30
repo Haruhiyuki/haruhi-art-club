@@ -34,7 +34,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/Everydaaaaaaaaaaaaaaay/haruhi-art-club.git
+git clone https://github.com/Haruhiyuki/haruhi-art-club.git
 cd haruhi-art-club
 
 # 安装依赖
